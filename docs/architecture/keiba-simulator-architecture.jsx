@@ -19,6 +19,13 @@ const COLORS = {
   textMuted: "#475569",
 };
 
+// 実装フェーズ。P3のモジュールはアブレーションでベースライン比の改善が確認できた場合のみ採用する
+const PHASES = {
+  P1: { label: "P1 · MVP", color: COLORS.green },
+  P2: { label: "P2 · 拡張", color: COLORS.blue },
+  P3: { label: "P3 · 効果検証後に採用", color: COLORS.purple },
+};
+
 const layers = [
   {
     id: "L0",
@@ -27,35 +34,42 @@ const layers = [
     color: COLORS.textMuted,
     accentColor: "#64748b",
     icon: "⛁",
-    summary: "全データの取得・クレンジング・特徴量エンジニアリング",
+    summary: "全データの取得・クレンジング・時点保証付き特徴量エンジニアリング",
     modules: [
       {
-        name: "公式データコネクタ",
-        tech: "Python / JRA-VAN API",
-        desc: "過去レース結果・ラップ・馬体重・オッズの全量取得",
-        inputs: ["JRA-VAN", "netkeiba", "TARGET"],
+        name: "JV-Link取込ワーカー",
+        tech: "Python / JV-Link（Windows COM）",
+        phase: "P1",
+        desc: "JRA-VAN Data LabのJV-LinkはWindows専用COMのため、取込のみWindows上で実行しparquetへ出力。以降の処理はLinux/Dockerで実行",
+        inputs: ["JRA-VAN Data Lab", "TARGET frontier（CSVエクスポート）", "JRA公式"],
         outputs: ["raw_races.parquet"],
+        detail: "netkeiba等のスクレイピングは利用規約を確認してから採否を判断。取得データはライセンス上リポジトリにコミットせず、DVCのリモートで管理",
       },
       {
         name: "スピード指数エンジン",
         tech: "Pandas / NumPy",
-        desc: "馬場差・斤量補正済みスピード指数を全レースに付与",
+        phase: "P2",
+        desc: "馬場差・斤量補正済みスピード指数を全レースに付与。馬場差はその開催日までのレースのみから推定",
         inputs: ["raw_races.parquet"],
         outputs: ["speed_index.parquet"],
       },
       {
         name: "血統ベクトル化",
         tech: "Word2Vec / 血統DB",
+        phase: "P3",
         desc: "父・母父・近親の血統を数値ベクトルに変換",
         inputs: ["pedigree_db"],
         outputs: ["pedigree_vectors.npy"],
+        detail: "産駒成績を使う埋め込みは、学習に使う成績を予測対象レース以前に限定して再学習する",
       },
       {
         name: "特徴量ストア",
-        tech: "Feast / DuckDB",
-        desc: "全特徴量を時系列管理。未来リーク防止を保証",
+        tech: "DuckDB（→ 必要ならFeast）",
+        phase: "P1",
+        desc: "全特徴量に available_at（入手可能時刻）を持たせて時系列管理。レース発走時刻より後の値はテストで検出して拒否",
         inputs: ["各種parquet"],
         outputs: ["feature_store"],
+        detail: "当日情報（馬体重は発走約1時間前、最終オッズは締切後）は入手時刻を明示し、予測時点で未入手の値は使わない",
       },
     ],
   },
@@ -71,26 +85,19 @@ const layers = [
       {
         name: "ELOレーティングエンジン",
         tech: "Python（独自実装）",
-        desc: "コース×距離×馬場別に独立したELOを管理。全頭リアルタイム更新",
+        phase: "P2",
+        desc: "全体ELO＋条件別オフセット（コース・距離帯・馬場）の階層構造。条件別に完全分割するとデータが疎になるため共有部分を持たせる",
         inputs: ["raw_races.parquet"],
         outputs: ["elo_ratings.db"],
-        detail: "K係数はレースグレード×着差で動的調整。G1勝ちはK=64、条件戦はK=16",
+        detail: "K係数はレースグレード×着差で動的調整（初期値：G1=64、条件戦=16）。値はウォークフォワード検証で調整",
       },
       {
         name: "スピード指数トレンド分析",
-        tech: "statsmodels / Prophet",
-        desc: "過去10走の指数トレンド・上昇/下降傾向・ピーク時期を検出",
+        tech: "statsmodels",
+        phase: "P2",
+        desc: "直近のスピード指数の推移から成長・衰退トレンドを推定",
         inputs: ["speed_index.parquet"],
         outputs: ["trend_scores"],
-        detail: "Prophet で季節性（春秋）・長期トレンドを分解",
-      },
-      {
-        name: "個別σ算出エンジン",
-        tech: "NumPy",
-        desc: "馬ごとの過去成績バラツキからモンテカルロ用の個別ノイズσを生成",
-        inputs: ["speed_index.parquet"],
-        outputs: ["individual_sigma"],
-        detail: "経験値・初コース・距離経験補正を含む",
       },
     ],
   },
@@ -106,6 +113,7 @@ const layers = [
       {
         name: "コース適性モデル",
         tech: "ロジスティック回帰",
+        phase: "P2",
         desc: "同コース・同距離・同回り・同馬場での過去成績から適性スコアを算出",
         inputs: ["feature_store", "elo_ratings.db"],
         outputs: ["course_fit_scores"],
@@ -114,14 +122,16 @@ const layers = [
       {
         name: "KNN類似レース検索",
         tech: "scikit-learn NearestNeighbors",
+        phase: "P2",
         desc: "今回のレース条件（距離・逃げ馬数・メンバー脚質構成）に類似した過去レースをK=15件抽出",
         inputs: ["feature_store"],
         outputs: ["similar_race_patterns"],
-        detail: "類似レースの勝ち馬パターン・展開・ペースを参照情報として提供",
+        detail: "検索対象は予測対象レースより前のレースに限定",
       },
       {
         name: "血統適性スコアラー",
         tech: "Random Forest",
+        phase: "P3",
         desc: "父・母父の組み合わせ×コース条件での過去成績から血統適性を算出",
         inputs: ["pedigree_vectors.npy", "feature_store"],
         outputs: ["pedigree_fit_scores"],
@@ -130,10 +140,11 @@ const layers = [
       {
         name: "ガウス過程補間器",
         tech: "GPyTorch",
+        phase: "P3",
         desc: "データ不足馬（新馬・外国馬）の適性スコアを類似条件から補間。不確実性σも出力",
         inputs: ["course_fit_scores", "pedigree_fit_scores"],
         outputs: ["gp_imputed_scores", "uncertainty_sigma"],
-        detail: "データ量が多い馬ほど信頼区間が狭くなる",
+        detail: "データ量が多い馬ほど信頼区間が狭くなる。uncertainty_sigma はモンテカルロの個別ノイズに使う",
       },
     ],
   },
@@ -144,39 +155,43 @@ const layers = [
     color: COLORS.purple,
     accentColor: COLORS.purple,
     icon: "▣",
-    summary: "全特徴量を統合した着順予測モデル群",
+    summary: "全特徴量を統合した着順予測モデル群。ベースライン1本から始め、効果のあるモデルだけを追加",
     modules: [
       {
-        name: "ランキング学習モデル",
+        name: "ランキング学習モデル（ベースライン）",
         tech: "LightGBM LambdaMART",
-        desc: "全特徴量を統合して着順スコアを直接学習。過去3年G1/G2/G3データで訓練",
+        phase: "P1",
+        desc: "全特徴量を統合して着順スコアを直接学習。重賞だけでは約60レース/年と少ないため、全クラスの全レースで学習し重賞に適用",
         inputs: ["L1全出力", "L2全出力", "feature_store"],
         outputs: ["ranking_scores"],
-        detail: "NDCG@3を最適化。特徴量重要度でモデル解釈性を確保",
-      },
-      {
-        name: "ハザードモデル",
-        tech: "lifelines CoxPH",
-        desc: "「他馬に抜かれるリスク」を時系列で推定。失速タイミングの予測",
-        inputs: ["feature_store", "elo_ratings.db"],
-        outputs: ["hazard_scores"],
-        detail: "脚質×ペース×残り距離の交互作用項を含む",
+        detail: "NDCG@3を最適化。スコアはレース内softmax（温度は学習データで推定）で勝率に変換。以降の全モデルはこのベースライン比で評価",
       },
       {
         name: "ベイズ推定エンジン",
         tech: "PyMC",
+        phase: "P2",
         desc: "各馬の「真の実力」を事後分布として推定。当日情報で逐次更新",
         inputs: ["ranking_scores", "speed_index.parquet"],
         outputs: ["posterior_distributions"],
         detail: "MCMCサンプリング2000回。当日馬体重・馬場発表で事後更新",
       },
       {
+        name: "ハザードモデル",
+        tech: "lifelines CoxPH",
+        phase: "P3",
+        desc: "「他馬に抜かれるリスク」を時系列で推定。失速タイミングの予測",
+        inputs: ["feature_store", "elo_ratings.db"],
+        outputs: ["hazard_scores"],
+        detail: "脚質×ペース×残り距離の交互作用項を含む。ラップデータの粒度が足りるかを先に検証",
+      },
+      {
         name: "エージェントベースシミュレーター",
         tech: "Mesa（Python ABS）",
+        phase: "P3",
         desc: "各馬をエージェントとして定義。位置取り→直線伸びの2段階プロセスを物理的に再現",
         inputs: ["ranking_scores", "similar_race_patterns"],
         outputs: ["abs_finish_orders"],
-        detail: "カーブでの距離ロス・坂の影響・スタートダッシュを実装",
+        detail: "実装コストが大きいため、アブレーションで改善が確認できた場合のみ採用",
       },
     ],
   },
@@ -187,11 +202,21 @@ const layers = [
     color: COLORS.accent,
     accentColor: COLORS.accent,
     icon: "⟳",
-    summary: "全モデルを統合した50,000回シミュレーションと確率分布生成",
+    summary: "確率モデルに基づく50,000回シミュレーションと券種別確率の生成",
     modules: [
+      {
+        name: "確率モデル",
+        tech: "Plackett-Luce / Harville",
+        phase: "P1",
+        desc: "スコアから勝率への変換方法を固定。各レースで勝率の合計を1に正規化し、馬連・馬単・三連複・三連単の確率を導出",
+        inputs: ["ranking_scores"],
+        outputs: ["win_probs", "exotic_probs"],
+        detail: "Harville式（=Plackett-Luceの解析解）は人気馬の2・3着確率を過大評価しやすいことが知られているため、実績との乖離を検証し必要ならHenery/Stern型の補正を入れる",
+      },
       {
         name: "動的ペース生成器",
         tech: "NumPy",
+        phase: "P2",
         desc: "逃げ馬数・先行馬質・枠順から1000m通過ペース分布を自動算出（静的シナリオ分類を排除）",
         inputs: ["feature_store"],
         outputs: ["pace_distribution"],
@@ -200,6 +225,7 @@ const layers = [
       {
         name: "共通ショック生成器",
         tech: "NumPy",
+        phase: "P2",
         desc: "馬場バイアス・内外バイアス・ペースショックを各試行で共通ノイズとして生成",
         inputs: ["pace_distribution"],
         outputs: ["common_shocks"],
@@ -208,18 +234,20 @@ const layers = [
       {
         name: "モンテカルロエンジン",
         tech: "NumPy / Numba（JIT高速化）",
-        desc: "t分布ノイズ＋個別σ＋共通ショックで50,000回試行。着順全分布を生成",
-        inputs: ["posterior_distributions", "individual_sigma", "common_shocks"],
+        phase: "P2",
+        desc: "Plackett-Luce（Gumbelノイズ）を基本に、個別σ＋共通ショックを加えて50,000回試行。着順全分布を生成",
+        inputs: ["win_probs", "posterior_distributions", "uncertainty_sigma", "common_shocks"],
         outputs: ["finish_distributions"],
-        detail: "Numba JITで高速化。50,000回を数秒で完了",
+        detail: "共通ショックなしの場合はPlackett-Luceの解析解と一致することをテストで確認",
       },
       {
         name: "アンサンブル統合器",
-        tech: "Stacking（LightGBM）",
-        desc: "4モデル（ランキング学習・ハザード・ベイズ・ABS）の出力を重み付き統合。過去検証で重みを最適化",
-        inputs: ["ranking_scores", "hazard_scores", "posterior_distributions", "abs_finish_orders"],
+        tech: "Stacking（ロジスティック回帰）",
+        phase: "P2",
+        desc: "採用されたモデルの出力を統合。重みはウォークフォワード検証のout-of-fold予測で学習",
+        inputs: ["ranking_scores", "posterior_distributions", "hazard_scores", "abs_finish_orders"],
         outputs: ["ensemble_win_probs"],
-        detail: "重み：ランキング学習35% / ベイズ25% / ABS25% / ハザード15%",
+        detail: "過学習を避けるためメタモデルは低容量（正則化付きロジスティック回帰）にする。固定の重みは使わない",
       },
     ],
   },
@@ -230,19 +258,30 @@ const layers = [
     color: COLORS.green,
     accentColor: COLORS.green,
     icon: "⊕",
-    summary: "予測確率の現実合わせと継続的精度検証",
+    summary: "予測確率の現実合わせと、市場（オッズ）を基準とした継続的精度検証",
     modules: [
+      {
+        name: "市場ベンチマーク",
+        tech: "Python",
+        phase: "P1",
+        desc: "オッズの逆数をレース内で正規化（控除率を除去）した市場確率と、ログロス・ブライアスコア・回収率を比較",
+        inputs: ["ensemble_win_probs", "odds_at_prediction_time", "actual_results"],
+        outputs: ["market_comparison_report"],
+        detail: "比較に使うオッズは予測時点で入手可能なもの。最終オッズを使う場合は「締切直前予測」として区別する",
+      },
       {
         name: "キャリブレーター",
         tech: "IsotonicRegression / Platt Scaling",
-        desc: "過去G1/G2レースでの予測vs実績から補正関数を学習。シミュ30%=実際の30%を保証",
+        phase: "P2",
+        desc: "全レースのout-of-fold予測vs実績から補正関数を学習。シミュ30%=実際の30%を保証",
         inputs: ["ensemble_win_probs", "historical_actuals"],
         outputs: ["calibrated_probs"],
-        detail: "等張回帰で単調性を保ちながら補正",
+        detail: "補正後にレース内で再正規化。重賞だけで学習すると標本不足で過学習するため全レースを使う",
       },
       {
         name: "信頼区間生成器",
         tech: "Bootstrap / GPyTorch",
+        phase: "P3",
         desc: "各馬の勝率に95%信頼区間を付与。「確信を持てる予測」と「読みにくい馬」を区別",
         inputs: ["finish_distributions", "uncertainty_sigma"],
         outputs: ["confidence_intervals"],
@@ -250,8 +289,9 @@ const layers = [
       {
         name: "継続評価モニター",
         tech: "MLflow / Evidently AI",
-        desc: "ブライアスコア・ログロス・順位相関を全G1でトラッキング。モデルドリフトを検出",
-        inputs: ["calibrated_probs", "actual_results"],
+        phase: "P2",
+        desc: "ログロス・ブライアスコア・回収率を市場比でトラッキング。モデルドリフトを検出",
+        inputs: ["calibrated_probs", "actual_results", "market_comparison_report"],
         outputs: ["model_performance_dashboard"],
         detail: "月次でキャリブレーション曲線を再チェック",
       },
@@ -264,18 +304,29 @@ const layers = [
     color: COLORS.red,
     accentColor: COLORS.red,
     icon: "▤",
-    summary: "分析結果の多形式出力とインタラクティブ可視化",
+    summary: "分析結果の多形式出力・期待値判断とインタラクティブ可視化",
     modules: [
       {
         name: "確率マトリクス出力",
         tech: "Pandas / Rich",
+        phase: "P1",
         desc: "全馬の1〜3着確率・複勝率・決着パターン頻度をターミナル/CSV出力",
-        inputs: ["calibrated_probs", "confidence_intervals"],
+        inputs: ["calibrated_probs", "exotic_probs"],
         outputs: ["probability_matrix.csv"],
+      },
+      {
+        name: "期待値・購入判断",
+        tech: "Python",
+        phase: "P2",
+        desc: "期待値（確率×オッズ）が閾値を超える買い目を抽出し、分数ケリーで賭け金比率を算出",
+        inputs: ["calibrated_probs", "exotic_probs", "odds_at_prediction_time"],
+        outputs: ["bet_recommendations.csv"],
+        detail: "閾値とケリー係数はバックテストの回収率とドローダウンで決める",
       },
       {
         name: "ペース感応度マップ",
         tech: "Matplotlib / Plotly",
+        phase: "P3",
         desc: "スロー〜ハイの各ペースで各馬の勝率変化をヒートマップ表示",
         inputs: ["finish_distributions"],
         outputs: ["pace_sensitivity_plot"],
@@ -283,13 +334,15 @@ const layers = [
       {
         name: "モデル合意度レポート",
         tech: "Jinja2テンプレート",
-        desc: "4モデルの予測一致度・モデル間分散を馬ごとにレポート化。確信度の指標",
-        inputs: ["ranking_scores", "hazard_scores", "posterior_distributions", "abs_finish_orders"],
+        phase: "P3",
+        desc: "採用モデル間の予測一致度・分散を馬ごとにレポート化。確信度の指標",
+        inputs: ["ranking_scores", "posterior_distributions", "hazard_scores", "abs_finish_orders"],
         outputs: ["consensus_report.md"],
       },
       {
         name: "Webダッシュボード",
         tech: "Streamlit / FastAPI",
+        phase: "P3",
         desc: "当日朝に実行して結果をブラウザで確認できるインタラクティブUI",
         inputs: ["全Layer出力"],
         outputs: ["Web UI"],
@@ -300,11 +353,10 @@ const layers = [
 
 const dataFlows = [
   { from: "L0", to: "L1", label: "特徴量ストア" },
-  { from: "L0", to: "L2", label: "特徴量ストア" },
-  { from: "L1", to: "L3", label: "実力スコア" },
-  { from: "L2", to: "L3", label: "適性スコア" },
-  { from: "L3", to: "L4", label: "確率分布" },
-  { from: "L4", to: "L5", label: "粗勝率" },
+  { from: "L1", to: "L2", label: "実力スコア" },
+  { from: "L2", to: "L3", label: "適性スコア・σ" },
+  { from: "L3", to: "L4", label: "予測スコア" },
+  { from: "L4", to: "L5", label: "勝率・着順分布" },
   { from: "L5", to: "L6", label: "補正済み確率" },
 ];
 
@@ -312,16 +364,42 @@ const techStack = [
   { category: "データ処理", items: ["Python 3.11", "Pandas", "DuckDB", "Polars"] },
   { category: "機械学習", items: ["LightGBM", "scikit-learn", "PyMC", "GPyTorch"] },
   { category: "シミュレーション", items: ["NumPy", "Numba (JIT)", "Mesa (ABS)", "lifelines"] },
-  { category: "MLOps", items: ["MLflow", "Evidently AI", "Feast", "DVC"] },
-  { category: "インフラ", items: ["FastAPI", "Streamlit", "Docker", "GitHub Actions"] },
-  { category: "データソース", items: ["JRA-VAN", "netkeiba", "TARGET frontier", "JRA公式"] },
+  { category: "MLOps", items: ["MLflow", "Evidently AI", "DVC", "Feast（必要になれば）"] },
+  { category: "開発基盤", items: ["uv", "ruff", "pytest", "GitHub Actions"] },
+  { category: "インフラ", items: ["FastAPI", "Streamlit", "Docker", "Windows取込ワーカー"] },
+  { category: "データソース", items: ["JRA-VAN Data Lab（JV-Link）", "TARGET frontier（CSV）", "JRA公式", "netkeiba（規約確認後）"] },
 ];
 
+// 基準は「ランダム」ではなく市場（オッズの逆数をレース内で正規化した確率）
 const kpis = [
-  { label: "Top-3的中率", target: ">55%", baseline: "ランダム:16%", color: COLORS.green },
-  { label: "ブライアスコア", target: "<0.12", baseline: "オッズ逆数:0.16", color: COLORS.blue },
-  { label: "順位相関", target: ">0.45", baseline: "ランダム:0.0", color: COLORS.purple },
-  { label: "モデル合意度", target: "4/4一致時的中率>65%", baseline: "—", color: COLORS.accent },
+  {
+    label: "勝率ログロス",
+    target: "市場未満",
+    baseline: "市場確率のログロス",
+    definition: "各レースの勝ち馬に付けた確率の −log の平均",
+    color: COLORS.green,
+  },
+  {
+    label: "勝率ブライアスコア",
+    target: "市場未満",
+    baseline: "市場確率のブライアスコア",
+    definition: "各レースで Σ(予測勝率 − 勝ち0/1)² を計算し、レース平均",
+    color: COLORS.blue,
+  },
+  {
+    label: "回収率",
+    target: ">100%",
+    baseline: "全馬単勝均等買い（≈ 80%）",
+    definition: "期待値（勝率×単勝オッズ）が閾値を超えた馬を単勝1単位ずつ購入した場合の払戻/投資",
+    color: COLORS.accent,
+  },
+  {
+    label: "本命の複勝率",
+    target: "1番人気の複勝率以上",
+    baseline: "1番人気の複勝率（一般に6割前後）",
+    definition: "予測勝率1位の馬が3着以内に入ったレースの割合",
+    color: COLORS.purple,
+  },
 ];
 
 export default function App() {
@@ -354,7 +432,7 @@ export default function App() {
           <div style={{
             fontSize: "10px", color: COLORS.textMuted, letterSpacing: "1px",
           }}>
-            v1.0 — ARCHITECTURE BLUEPRINT
+            v1.1 — ARCHITECTURE BLUEPRINT
           </div>
         </div>
         <h1 style={{
@@ -365,7 +443,7 @@ export default function App() {
           <span style={{ color: COLORS.accent }}> 完全アーキテクチャ</span>
         </h1>
         <p style={{ color: COLORS.textDim, fontSize: "13px", marginTop: "8px", lineHeight: "1.6" }}>
-          ELO × KNN × ランキング学習 × ハザードモデル × ベイズ推定 × ABS × モンテカルロ の7手法統合
+          LambdaMARTベースラインから始め、ELO × KNN × ベイズ推定 × ハザード × ABS × モンテカルロを効果検証しながら統合。評価基準は市場（オッズ）
         </p>
       </div>
 
@@ -409,6 +487,15 @@ export default function App() {
               letterSpacing: "3px", marginBottom: "12px",
             }}>
               LAYERS — クリックで詳細展開
+            </div>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+              {Object.entries(PHASES).map(([key, phase]) => (
+                <span key={key} style={{
+                  fontSize: "10px", color: phase.color,
+                  border: `1px solid ${phase.color}`,
+                  padding: "1px 6px", borderRadius: "3px",
+                }}>{phase.label}</span>
+              ))}
             </div>
             {layers.map((layer) => (
               <div
@@ -519,6 +606,15 @@ export default function App() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontSize: "13px", fontWeight: "600", marginBottom: "4px" }}>
                         {mod.name}
+                        {mod.phase && (
+                          <span style={{
+                            fontSize: "10px", fontWeight: "400",
+                            color: PHASES[mod.phase].color,
+                            border: `1px solid ${PHASES[mod.phase].color}`,
+                            padding: "0 6px", borderRadius: "3px",
+                            marginLeft: "8px", whiteSpace: "nowrap",
+                          }}>{PHASES[mod.phase].label}</span>
+                        )}
                       </div>
                       <div style={{
                         fontSize: "10px",
@@ -687,10 +783,11 @@ export default function App() {
               CROSS-LAYER DEPENDENCIES
             </div>
             {[
-              ["L0 → L1/L2", "特徴量ストアが全レイヤーに共有される"],
-              ["L2 → L4", "ガウス過程の不確実性σがモンテカルロの個別σに加算"],
+              ["L0 → 全層", "特徴量ストアが全レイヤーに共有される。available_at で時点を保証"],
+              ["L2 → L4", "ガウス過程の不確実性σ（uncertainty_sigma）がモンテカルロの個別σに加算"],
               ["L3 → L4", "ベイズ事後分布がモンテカルロの初期分布として使われる"],
-              ["L4 → L5", "50,000回の着順分布がキャリブレーターに入力される"],
+              ["L4 → L5", "勝率と着順分布がキャリブレーター・市場ベンチマークに入力される"],
+              ["L5 → L3", "市場比の評価結果でP3モデルの採否とアンサンブルを見直す（アブレーション）"],
               ["L5 → L5", "実レース結果でキャリブレーターを継続的に更新（フィードバックループ）"],
             ].map(([pair, desc], i) => (
               <div key={i} style={{
@@ -698,7 +795,7 @@ export default function App() {
                 marginBottom: "8px", fontSize: "12px",
               }}>
                 <div style={{
-                  color: COLORS.accent, minWidth: "100px",
+                  color: COLORS.accent, minWidth: "100px", flexShrink: 0,
                   fontWeight: "600",
                 }}>{pair}</div>
                 <div style={{ color: COLORS.textDim }}>{desc}</div>
@@ -769,46 +866,23 @@ export default function App() {
             <pre style={{
               fontSize: "12px", color: COLORS.textDim,
               lineHeight: "1.8", margin: 0, overflowX: "auto",
-            }}>{`keiba_simulator/
-├── data/
-│   ├── raw/                    # JRA-VANからの生データ
-│   ├── processed/              # クレンジング済み
-│   └── feature_store/          # Feast管理の特徴量
-│
-├── models/
-│   ├── layer1_ability/
-│   │   ├── elo_engine.py       # ELOレーティング
-│   │   └── trend_analyzer.py   # Prophet トレンド
-│   ├── layer2_fitness/
-│   │   ├── course_model.py     # ロジスティック回帰
-│   │   ├── knn_searcher.py     # KNN類似レース
-│   │   ├── pedigree_scorer.py  # 血統スコア
-│   │   └── gp_imputer.py       # ガウス過程補間
-│   ├── layer3_prediction/
-│   │   ├── ranking_lgbm.py     # LambdaMART
-│   │   ├── hazard_model.py     # CoxPH
-│   │   ├── bayesian_engine.py  # PyMC
-│   │   └── abs_simulator.py    # Mesa ABS
-│   └── layer4_simulation/
-│       ├── pace_generator.py   # 動的ペース生成
-│       ├── monte_carlo.py      # 50,000回MC
-│       └── ensemble.py         # アンサンブル統合
-│
-├── calibration/
-│   ├── calibrator.py           # IsotonicRegression
-│   ├── confidence.py           # 信頼区間
-│   └── monitor.py              # MLflow / Evidently
-│
-├── output/
-│   ├── probability_matrix.py
-│   ├── pace_heatmap.py
-│   └── dashboard/              # Streamlit UI
-│
-├── backtest/
-│   ├── historical_test.py      # 過去G1全レース検証
-│   └── metrics.py              # ブライアスコア他
-│
-└── main.py                     # 本番実行エントリポイント`}</pre>
+            }}>{`aikeiba/
+├── pyproject.toml              # uv / ruff / pytest 設定
+├── src/aikeiba/
+│   ├── schema.py               # 1行=1出走の列定義
+│   ├── leakage.py              # 時点保証チェック
+│   ├── features.py             # 過去レースのみを使う特徴量
+│   ├── probability.py          # softmax正規化・Harville・Plackett-Luce
+│   ├── metrics.py              # ログロス・ブライア・回収率
+│   ├── validation.py           # ウォークフォワード分割
+│   ├── baseline.py             # LightGBM LambdaMART ベースライン
+│   ├── backtest.py             # 市場比バックテスト（CLI）
+│   └── synthetic.py            # 実データなしで動かす合成データ
+├── tests/                      # pytest
+├── ingest/windows/             # JV-Link取込ワーカー（予定）
+├── data/                       # gitignore・DVC管理（コミットしない）
+└── docs/architecture/          # この設計図（Viteで表示）
+`}</pre>
           </div>
         </div>
       )}
@@ -820,7 +894,7 @@ export default function App() {
             fontSize: "10px", color: COLORS.textMuted,
             letterSpacing: "3px", marginBottom: "20px",
           }}>
-            EVALUATION METRICS — オッズ非依存の精度指標
+            EVALUATION METRICS — 市場（オッズ）を基準にした精度指標
           </div>
 
           <div style={{
@@ -854,6 +928,9 @@ export default function App() {
                 <div style={{ fontSize: "11px", color: COLORS.textMuted }}>
                   ベースライン: {kpi.baseline}
                 </div>
+                <div style={{ fontSize: "11px", color: COLORS.textDim, marginTop: "8px", lineHeight: "1.5" }}>
+                  定義: {kpi.definition}
+                </div>
               </div>
             ))}
           </div>
@@ -873,16 +950,17 @@ export default function App() {
               BACKTEST STRATEGY
             </div>
             {[
-              { step: "01", title: "データ分割", desc: "2021-2023年G1/G2を訓練データ、2024-2025年を検証データとして完全分離" },
-              { step: "02", title: "時系列順守", desc: "未来リーク防止のため、常に「その時点で入手可能だったデータのみ」でシミュレーション実行" },
-              { step: "03", title: "全手法バックテスト", desc: "7手法それぞれ単独 + アンサンブルの計8パターンで検証。どの手法がどの条件で効くかを確認" },
-              { step: "04", title: "キャリブレーション曲線確認", desc: "シミュ勝率10%/20%/30%/40%の馬が実際に何%勝っているかを確認。乖離があれば補正関数を更新" },
-              { step: "05", title: "継続モニタリング", desc: "本番運用後も全G1の結果をMLflowに蓄積。ブライアスコアが悪化したらアラート" },
+              { step: "01", title: "ウォークフォワード分割", desc: "年単位で「その年より前の全レースで学習 → その年を検証」を繰り返す。重賞は年約60レースしかないため、学習は全クラスの全レースで行い、評価は全レースと重賞サブセットの両方で報告" },
+              { step: "02", title: "時系列順守", desc: "特徴量は available_at が発走時刻より前のもののみ。ハイパーパラメータ調整・キャリブレーション・スタッキングも学習期間内のデータだけで行う" },
+              { step: "03", title: "市場との比較", desc: "全指標を市場確率（オッズの逆数をレース内正規化）と並べて報告。市場に勝てない改善は改善とみなさない" },
+              { step: "04", title: "アブレーション", desc: "P1ベースラインに1手法ずつ追加し、ログロスが改善した手法だけを採用。7手法すべてを最初から作らない" },
+              { step: "05", title: "キャリブレーション曲線確認", desc: "予測勝率10%/20%/30%/40%の帯で実際の勝率を確認。乖離があれば補正関数を更新" },
+              { step: "06", title: "継続モニタリング", desc: "本番運用後も全レースの結果をMLflowに蓄積。市場比のログロスが悪化したらアラート" },
             ].map((item, i) => (
               <div key={i} style={{
                 display: "flex", gap: "16px",
                 marginBottom: "14px", paddingBottom: "14px",
-                borderBottom: i < 4 ? `1px solid ${COLORS.border}` : "none",
+                borderBottom: i < 5 ? `1px solid ${COLORS.border}` : "none",
               }}>
                 <div style={{
                   fontSize: "22px", fontWeight: "700",
@@ -957,10 +1035,10 @@ export default function App() {
         flexWrap: "wrap", gap: "8px",
       }}>
         <div style={{ fontSize: "10px", color: COLORS.textMuted, letterSpacing: "2px" }}>
-          GRADE RACE PREDICTION ENGINE — ARCHITECTURE v1.0
+          GRADE RACE PREDICTION ENGINE — ARCHITECTURE v1.1
         </div>
         <div style={{ fontSize: "10px", color: COLORS.textMuted }}>
-          7 methods × 7 layers × 50,000 trials
+          baseline first × market benchmark × walk-forward validation
         </div>
       </div>
     </div>

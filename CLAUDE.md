@@ -2,39 +2,40 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status
+## Project
 
-aikeiba aims to build a system that predicts Japanese horse racing (競馬) results with AI, focusing on graded races (重賞). The repository is at the **design stage**: no Python implementation, package manifest, build tooling, linter, or tests exist yet. The design documents and comments are written in Japanese; keep new ones in Japanese too.
+aikeiba predicts JRA graded races (重賞). A Python package (`src/aikeiba`) runs a baseline pipeline end to end on synthetic data; real data is not connected yet. `ROADMAP.md` sets the build order, and `docs/architecture/keiba-simulator-architecture.jsx` is the full design (UI text in Japanese). Write code, comments and new docs in English, and reply to the user in Japanese.
 
-The only substantive file is `Keiba simulator architecture.jsx`. It is a self-contained React component: a single `export default function App()` that uses only `useState` from `react`, has no other dependencies, and does all styling inline through the `COLORS` token object. It is the architecture blueprint ("重賞予想シミュレーター 完全アーキテクチャ", v1.0) and renders as an interactive page. There is no bundler config. To view it, paste it into a React sandbox or artifact renderer, or scaffold a Vite/React app around it.
+## Commands
 
-## The blueprint is the spec
+```bash
+uv sync                                   # install (Python 3.11)
+uv run pytest                             # all tests
+uv run pytest tests/test_metrics.py::test_dead_heat_averages_over_winners   # one test
+uv run ruff check . && uv run ruff format --check .
+uv run aikeiba-backtest                   # walk-forward backtest on synthetic data
+uv run aikeiba-backtest --data runners.parquet --test-years 2023 2024
 
-The blueprint drives future implementation. Its content lives in data constants at the top of the file, and the JSX below only renders them:
+cd docs/architecture && npm install && npm run build   # blueprint viewer (Vite)
+```
 
-- `layers`: 7 layers (L0–L6). Each has `modules`, and each module lists `name`, `tech`, `desc`, `inputs`, `outputs`, and an optional `detail`. A module's `inputs`/`outputs` artifact names (e.g. `raw_races.parquet`, `feature_store`, `elo_ratings.db`, `ranking_scores`, `calibrated_probs`) define the data contracts between modules.
-- `dataFlows`: the layer-to-layer edges.
-- `techStack`: the planned libraries.
-- `kpis`: the target metrics.
-- The validation workflow steps are written inline in the `kpi` view.
+CI (`.github/workflows/ci.yml`) runs ruff, pytest, a synthetic backtest smoke test and the viewer build.
 
-To change the design, edit these constants rather than the render code. If you rename an artifact, update every module that reads or writes it.
+## Architecture
 
-### Planned pipeline (L0 → L6)
+Every stage passes a **runner table**: a pandas DataFrame with one row per horse per race, whose columns are defined in `schema.py` (`race_id`, `post_time`, `horse_id`, `finish_position`, `win_odds`, `grade`, ...). New modules take and return this shape. Array-based functions take `race_ids` alongside the values and group by them.
 
-1. **L0 データ収集・前処理**: gets data from JRA-VAN, netkeiba, and TARGET; computes a speed index; turns pedigrees into vectors with Word2Vec; stores features in a Feast/DuckDB feature store that guarantees no future leakage.
-2. **L1 実力評価**: ELO ratings kept separately for each course × distance × going combination. K is dynamic: 64 for a G1 win, 16 for condition races. Also speed-index trend analysis.
-3. **L2 適性評価**: a course-fit logistic regression, a KNN search for similar past races (K=15), a Random Forest pedigree-fit scorer, and a GPyTorch Gaussian-process imputer for horses with little data. The imputer also outputs an uncertainty σ.
-4. **L3 予測モデル**: four models: LightGBM LambdaMART (optimizes NDCG@3), a lifelines CoxPH hazard model, a PyMC Bayesian posterior (2000 MCMC draws), and a Mesa agent-based simulator.
-5. **L4 シミュレーション**: a dynamic pace generator, common shocks (track and inside/outside bias), and a Numba-JIT Monte Carlo run of 50,000 trials with t-distributed noise. A stacking ensemble combines the four L3 models with weights Ranking 35%, Bayes 25%, ABS 25%, Hazard 15%.
-6. **L5 キャリブレーション・評価**: isotonic or Platt calibration, bootstrap confidence intervals, and drift monitoring with MLflow and Evidently.
-7. **L6 出力**: a probability-matrix CSV, a pace-sensitivity heatmap, a model-consensus report (Jinja2), and a Streamlit/FastAPI dashboard.
+Pipeline (`backtest.run_backtest`): `validate_runners` → `features.add_prior_form_features` → `validation.walk_forward_by_year` → `baseline.LambdaRankBaseline` fit per fold → `predict_proba` (per-race softmax) → `metrics` for both the model and `probability.market_probs`, reported for all races and for the graded subset.
 
-Planned stack: Python 3.11, Pandas/Polars/DuckDB, LightGBM, scikit-learn, PyMC, GPyTorch, NumPy/Numba, Mesa, lifelines, MLflow, Evidently AI, Feast, DVC, FastAPI, Streamlit, Docker, GitHub Actions.
+Invariants that the code and tests rely on:
 
-### Non-negotiable design constraints
+- **Point in time.** Every feature has an `available_at` column (e.g. `form_available_at`), and `leakage.assert_point_in_time` rejects values at or after `post_time`. Per-horse aggregates use strictly earlier races (cumulative sum minus the current row, or `shift(1)`). Tuning, temperature fitting, calibration and stacking use only the training fold. `LambdaRankBaseline.fit` fits its temperature on the latest 20% of training races with a model that has not seen them.
+- **Probabilities sum to 1 within each race.** Scores become probabilities only through `softmax_by_race` or `normalize_by_race`. Market probabilities are normalized odds inverses, which removes the takeout.
+- **One finishing-order model.** Plackett-Luce, with Harville as its closed form. `sample_plackett_luce` is the base for the Monte Carlo engine and must match Harville when no shocks are added.
+- **The market is the benchmark.** Report metrics next to `market`, never against a random baseline. Train on all races; graded races (about 60 a year) are too few to train on alone.
 
-- **No future leakage.** Features and simulations may use only data that was available at the time of the race. The feature store is designed to enforce this.
-- **Strict time-based split.** Train on 2021–2023 G1/G2 races and validate on 2024–2025. Backtest all 7 methods on their own, plus the ensemble (8 patterns in total).
-- **Calibration is part of the output.** A simulated 30% win probability must mean a 30% real win rate. Check the calibration curve at the 10/20/30/40% bands.
-- **KPI targets:** Top-3 hit rate > 55%, Brier score < 0.12 (the odds-inverse baseline is 0.16), rank correlation > 0.45, and hit rate > 65% when all four models agree.
+`synthetic.py` exists so the pipeline and tests run without licensed data; it has no deliberate model edge. Real race data is never committed (`data/`, `*.parquet` are gitignored). JRA-VAN comes through JV-Link, a Windows-only COM component, so ingestion is planned as a separate Windows worker (`ingest/windows/`) that writes parquet.
+
+## Blueprint
+
+The blueprint's content lives in the data constants at the top of the JSX file (`PHASES`, `layers`, `dataFlows`, `techStack`, `kpis`); the JSX below only renders them, so edit the constants. Each module's `inputs`/`outputs` names are the data contracts between modules, so a rename must update every reader. `phase` (P1/P2/P3) matches the phases in `ROADMAP.md`; P3 modules are adopted only if an ablation shows a gain over the baseline. Keep the blueprint and the roadmap consistent when either changes.
