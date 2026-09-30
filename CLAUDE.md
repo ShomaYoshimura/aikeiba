@@ -15,6 +15,7 @@ uv run pytest tests/test_metrics.py::test_dead_heat_averages_over_winners   # on
 uv run ruff check . && uv run ruff format --check .
 uv run aikeiba-backtest                   # walk-forward backtest on synthetic data
 uv run aikeiba-backtest --data runners.parquet --test-years 2023 2024
+uv run aikeiba-simulate examples/race_card.example.json --sims 1000000   # one race
 
 cd docs/architecture && npm install && npm run build   # blueprint viewer (Vite)
 ```
@@ -33,6 +34,8 @@ Invariants that the code and tests rely on:
 - **Probabilities sum to 1 within each race.** Scores become probabilities only through `softmax_by_race` or `normalize_by_race`. Market probabilities are normalized odds inverses, which removes the takeout.
 - **One finishing-order model.** Plackett-Luce, with Harville as its closed form. `sample_plackett_luce` is the base for the Monte Carlo engine and must match Harville when no shocks are added.
 - **The market is the benchmark.** Report metrics next to `market`, never against a random baseline. Train on all races; graded races (about 60 a year) are too few to train on alone.
+
+**Race-day path** (separate from the backtest): the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) collects a race card JSON from public sources into `data/race_cards/` → `racecard.load_race_card` → `strength.log_strengths` (market log-probability plus within-race z-scores of form, jockey, going and course records; missing fields count as the field average) → `simulate.simulate_race`. Each trial adds Gumbel noise (Plackett-Luce) and shared shocks: pace (driven by the number of front runners, interacting with running style), inside/outside track bias (wider on softer going) and form uncertainty that shrinks with known runs. With `shocks=False` win rates must equal the softmax of the strengths; keep that test passing. The weights in `StrengthWeights` and `ShockParams` are unfitted priors; once real data exists, fit them with the backtest instead of hand-tuning.
 
 `synthetic.py` exists so the pipeline and tests run without licensed data; it has no deliberate model edge. Real race data is never committed (`data/`, `*.parquet` are gitignored). JRA-VAN comes through JV-Link, a Windows-only COM component, so ingestion is planned as a separate Windows worker (`ingest/windows/`) that writes parquet.
 

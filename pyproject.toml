@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 aikeiba-backtest = "aikeiba.backtest:main"
+aikeiba-simulate = "aikeiba.simulate:main"
 
 [dependency-groups]
 dev = [

@@ -202,7 +202,7 @@ const layers = [
     color: COLORS.accent,
     accentColor: COLORS.accent,
     icon: "⟳",
-    summary: "確率モデルに基づく50,000回シミュレーションと券種別確率の生成",
+    summary: "確率モデルに基づく100万回シミュレーションと券種別確率の生成",
     modules: [
       {
         name: "確率モデル",
@@ -234,11 +234,11 @@ const layers = [
       {
         name: "モンテカルロエンジン",
         tech: "NumPy / Numba（JIT高速化）",
-        phase: "P2",
-        desc: "Plackett-Luce（Gumbelノイズ）を基本に、個別σ＋共通ショックを加えて50,000回試行。着順全分布を生成",
+        phase: "P1",
+        desc: "Plackett-Luce（Gumbelノイズ）を基本に、個別σ＋共通ショック（ペース・内外バイアス）を加えて100万回試行。着順・券種別確率を生成",
         inputs: ["win_probs", "posterior_distributions", "uncertainty_sigma", "common_shocks"],
         outputs: ["finish_distributions"],
-        detail: "共通ショックなしの場合はPlackett-Luceの解析解と一致することをテストで確認",
+        detail: "実装済み（aikeiba-simulate、約2秒）。共通ショックなしの場合はPlackett-Luceの解析解と一致することをテストで確認。試行回数を増やしても減るのはサンプリング誤差だけで、精度は入力で決まる",
       },
       {
         name: "アンサンブル統合器",

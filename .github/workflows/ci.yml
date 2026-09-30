@@ -19,6 +19,8 @@ jobs:
       - run: uv run pytest
       - name: Synthetic backtest smoke test
         run: uv run aikeiba-backtest --test-years 2020
+      - name: Race simulation smoke test
+        run: uv run aikeiba-simulate examples/race_card.example.json --sims 100000
 
   architecture-viewer:
     runs-on: ubuntu-latest

@@ -1,0 +1,21 @@
+{
+  "race": {
+    "name": "Example Stakes (fictional)",
+    "date": "2026-10-04",
+    "course": "Nakayama",
+    "surface": "turf",
+    "distance": 1200,
+    "going": "稍重"
+  },
+  "runners": [
+    {"number": 1, "draw": 1, "horse": "Horse A", "jockey": "Jockey A", "win_odds": 3.2, "running_style": "逃げ", "recent_finishes": [1, 2, 1, 4, 3], "jockey_win_rate": 0.18, "going_record": {"starts": 3, "top3": 2}, "course_record": {"starts": 2, "top3": 2}},
+    {"number": 2, "draw": 1, "horse": "Horse B", "jockey": "Jockey B", "win_odds": 5.8, "running_style": "差し", "recent_finishes": [3, 1, 5, 2], "jockey_win_rate": 0.12, "going_record": {"starts": 1, "top3": 0}},
+    {"number": 3, "draw": 2, "horse": "Horse C", "jockey": "Jockey C", "win_odds": 8.5, "running_style": "先行", "recent_finishes": [2, 6, 3, 3, 8], "jockey_win_rate": 0.09},
+    {"number": 4, "draw": 2, "horse": "Horse D", "jockey": "Jockey D", "win_odds": 12.0, "running_style": "追込", "recent_finishes": [5, 4, 2, 7, 1], "jockey_win_rate": 0.15, "going_record": {"starts": 4, "top3": 3}},
+    {"number": 5, "draw": 3, "horse": "Horse E", "jockey": "Jockey E", "win_odds": 4.5, "running_style": "先行", "recent_finishes": [1, 3, 2], "jockey_win_rate": 0.21, "course_record": {"starts": 1, "top3": 1}},
+    {"number": 6, "draw": 3, "horse": "Horse F", "jockey": "Jockey F", "win_odds": 25.0, "running_style": "逃げ", "recent_finishes": [9, 7, 10, 6, 8], "jockey_win_rate": 0.06},
+    {"number": 7, "draw": 4, "horse": "Horse G", "jockey": "Jockey G", "win_odds": 18.0, "running_style": "差し", "recent_finishes": [4, 5, 3, 9, 2], "jockey_win_rate": 0.08},
+    {"number": 8, "draw": 4, "horse": "Horse H", "jockey": "Jockey H", "win_odds": 40.0, "running_style": "追込", "recent_finishes": [], "jockey_win_rate": 0.10}
+  ],
+  "sources": ["Fictional example for tests and documentation"]
+}

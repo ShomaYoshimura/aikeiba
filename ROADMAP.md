@@ -23,6 +23,13 @@ roadmap is the order in which to build it. Two rules apply to every phase:
 - [x] Blueprint v1.1: fixes to training data, KPIs, ensemble weights, probability model,
       data sources; viewable with Vite
 
+## Race-day prediction (available now)
+
+- [x] `/predict-race` Claude Code skill: race card from public sources → 1,000,000-trial
+      Monte Carlo (`aikeiba-simulate`) → ◎○▲ and quinella/trio/trifecta probabilities
+- [ ] Fit `StrengthWeights` and `ShockParams` on real data (needs Phase 1) instead of priors
+- [ ] Log each prediction and the result, so race-day picks are scored like the backtest
+
 ## Phase 1: Real-data MVP
 
 Goal: the Phase 0 pipeline running on real JRA data, with an honest market comparison.

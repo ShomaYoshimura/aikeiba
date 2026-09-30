@@ -22,6 +22,21 @@ uv run aikeiba-backtest      # walk-forward backtest on synthetic data
 uv run aikeiba-backtest --data runners.parquet --test-years 2023 2024
 ```
 
+### Predict a race from Claude Code
+
+In Claude Code, run `/predict-race <race name>` (for example `/predict-race 天皇賞（秋）`), or just
+ask for a prediction of a named race. The `predict-race` skill collects the entries, jockeys,
+recent form and going from public sources into a race card, then runs:
+
+```bash
+uv run aikeiba-simulate data/race_cards/<card>.json --sims 1000000
+```
+
+The simulation runs 1,000,000 trials of the finishing order (about 2 seconds) with shared pace
+and track-bias shocks, and picks ◎○▲ plus the most likely quinella, trio and trifecta.
+See `examples/race_card.example.json` for the card format. The strength weights and shock sizes
+are provisional priors until they are fitted on real data (ROADMAP Phase 1).
+
 The backtest prints, for each test year, win log loss, Brier score, top-pick place rate and
 value-bet ROI for the model and for market-implied probabilities, over all races and over
 graded races only.
@@ -46,6 +61,9 @@ npm run dev
 | `metrics.py` | Win log loss, Brier score, place rate, value-bet ROI, calibration table |
 | `validation.py` | Walk-forward splits by year |
 | `backtest.py` | Model vs. market report (`aikeiba-backtest`) |
+| `racecard.py` | Race card JSON for one upcoming race |
+| `strength.py` | Log-strength per runner from odds, form, jockey and aptitude records |
+| `simulate.py` | 1,000,000-trial Monte Carlo with pace and track-bias shocks (`aikeiba-simulate`) |
 
 ## Design principles
 
