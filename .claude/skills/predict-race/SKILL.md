@@ -21,55 +21,30 @@ continuing.
 
 ## 2. Collect the race card
 
-Use WebSearch and WebFetch. Prefer the official JRA site (jra.go.jp). Before fetching from
-any other site, check that its terms allow automated access; skip it if they don't.
+Delegate collection to the collector agents so that each works in its own context. Use
+`data/race_cards/<date>-<slug>/` as the working directory (`data/` is gitignored), and set
+the **cutoff** to now (or, for a past race, see the verify-race skill).
 
-**Never guess or invent a value.** Leave out any field you could not confirm; a missing value
-counts as the field average. List every URL used in `sources`. The full format is in
-`examples/race_card.example.json`; `src/aikeiba/racecard.py` validates it.
+1. Run the `race-card-collector` agent: race, cutoff, output `<dir>/base.json`.
+2. Split the field into groups of about four horses and run one `runner-profile-collector`
+   agent per group **in parallel**: race conditions, cutoff, the horses (number, name,
+   jockey), output `<dir>/runners-<n>.json`.
+3. Merge and validate:
 
-Race: `name`, `grade`, `date` (YYYY-MM-DD), `course`, `surface` (芝/ダート), `distance` (m),
-`going` (良/稍重/重/不良; use the forecast if not announced and say so).
+```bash
+uv run aikeiba-card merge <dir>/base.json <dir>/runners-*.json -o <dir>/card.json
+```
 
-Per runner:
-
-| Area | Fields |
-| --- | --- |
-| Identity | `number` (馬番), `horse`, `draw` (枠番), `age`, `sex` |
-| Connections | `jockey`, `trainer`, `owner`, `breeder`, `region` (産地) |
-| Pedigree | `sire`, `damsire` |
-| Condition | `weight_carried`, `horse_weight`, `horse_weight_change`, `win_odds` (only if all runners have odds) |
-| Style | `running_style`: 逃げ/先行/差し/追込, judged from positions in recent races |
-| Past runs | `past_runs`: up to 10, most recent first, each with `date`, `finish`, `field_size`, `race_name`, `course`, `surface`, `distance`, `going`, `grade`, `jockey`, `last3f` |
-| Workouts | `workouts`: latest first, `date`, `course` (e.g. 美浦W, 栗東坂路), `time_4f`, `last_1f`, `intensity`; or `workout_rating` A-E if a source grades them |
-| Stats | `stats`: `{"starts": n, "top3": k}` records for `jockey_year`, `jockey_graded`, `jockey_course`, `trainer`, `trainer_graded`, `trainer_jockey`, `owner`, `breeder`, `region`, `sire_condition` (sire's progeny on today's surface, distance band and going), `damsire_condition`; and `jockey_h2h` (0-1, share of shared races the jockey finished ahead of this field's other jockeys) |
-| Current | `stable_comment` (quote or close paraphrase), `comment_score`, `consensus_share` |
-
-Race-level, from sources such as "過去10年の傾向" pages:
-
-- `trends`: records by `draw` (枠番), `age`, `sex`, `running_style`, `last_finish`
-  (`1`, `2-3`, `4-5`, `6+`) over past editions of this race.
-- `course_draw_stats`: records by gate for this course, surface and distance over all races.
-
-### Scoring the current information
-
-- `comment_score` (stable comments, 厩舎コメント), from -2 to 2:
-  +2 clear, specific confidence ("best condition ever", "aiming at this race");
-  +1 positive; 0 routine or vague; -1 hedged or a minor concern (slightly heavy, draw worry);
-  -2 a clear problem (injury, missed work, "just a run"). Score only what the comment says,
-  not the horse's reputation. Keep the text in `stable_comment` so the user can check it.
-- `consensus_share` (online predictions): among the predictions you found, the share that put
-  a top mark (◎ or ○) on this horse. Treat it as a weak signal: it mostly repeats the odds
-  and popular opinion. Never let it override the data; it has a small weight in the model.
-  Use several independent sources, and report how many predictions it is based on.
+If an agent reports missing fields, you may fill them yourself from a cited source, under
+the same rules: nothing published after the cutoff, **never guess or invent a value**, check a
+site's terms before fetching it, and add every URL to `sources`. A missing value counts as the
+field average. The field list and the comment-scoring rubric are in the agent definitions
+(`.claude/agents/`); the card format is in `examples/race_card.example.json`.
 
 ## 3. Simulate
 
-Write the card to `data/race_cards/<date>-<slug>.json` (the `data/` directory is gitignored).
-
 ```bash
-uv run aikeiba-simulate data/race_cards/<file>.json --sims 1000000 \
-  --json data/race_cards/<file>.result.json \
+uv run aikeiba-simulate <dir>/card.json --sims 1000000 --json <dir>/prediction.json \
   [--history data/history.parquet] [--weights data/models/weights.json]
 ```
 
@@ -91,3 +66,6 @@ and run again.
    - Whether the weights are `prior` (hand-set, not validated) or `fitted` (and on how many races).
    - Factors that were unknown for every runner (`missing_factors`).
    - More trials only reduce sampling error; accuracy depends on the inputs.
+
+After the race, the prediction can be scored with the verify-race skill (step 5 there), which
+fetches the result and logs it with `aikeiba-evaluate`.

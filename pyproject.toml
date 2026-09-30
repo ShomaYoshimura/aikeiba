@@ -16,6 +16,8 @@ dependencies = [
 aikeiba-backtest = "aikeiba.backtest:main"
 aikeiba-simulate = "aikeiba.simulate:main"
 aikeiba-train = "aikeiba.train:main"
+aikeiba-card = "aikeiba.cardtools:main"
+aikeiba-evaluate = "aikeiba.evaluate:main"
 
 [dependency-groups]
 dev = [

@@ -32,7 +32,9 @@ roadmap is the order in which to build it. Two rules apply to every phase:
 - [x] `aikeiba-train`: Plackett-Luce fit of factor weights on past graded races, market
       combination, walk-forward report (verified on synthetic history)
 - [ ] Fit the weights on real history (needs #2); then fit `ShockParams` the same way
-- [ ] Log each prediction and the result, so race-day picks are scored like the backtest
+- [x] Log each prediction and the result (`/verify-race`, `aikeiba-evaluate`), with collector
+      and result agents kept apart so results cannot leak into predictions
+- [ ] Run `/verify-race` on the recent graded races once network access to the sources is set
 - [ ] Speed up factor building for large histories (currently about 0.4 s per race)
 
 ## Phase 1: Real-data MVP

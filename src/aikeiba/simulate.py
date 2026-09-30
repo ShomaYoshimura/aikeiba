@@ -90,6 +90,8 @@ class SimulationResult:
                 "win_se": self.standard_error(self.win),
             }
         )
+        if self.evaluation.log_market is not None:
+            df["market_win"] = np.exp(self.evaluation.log_market)
         return df.sort_values("win", ascending=False, ignore_index=True)
 
     def picks(self) -> list[int]:

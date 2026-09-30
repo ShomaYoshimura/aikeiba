@@ -17,6 +17,8 @@ uv run aikeiba-backtest                   # walk-forward backtest on synthetic d
 uv run aikeiba-backtest --data runners.parquet --test-years 2023 2024
 uv run aikeiba-simulate examples/race_card.example.json --sims 1000000   # one race
 uv run aikeiba-train --history data/history.parquet --out data/models/weights.json  # omit --history for synthetic
+uv run aikeiba-card merge base.json runners-*.json -o card.json      # assemble a race card from agent output
+uv run aikeiba-evaluate prediction.json result.json                  # score a frozen prediction, append to data/predictions/log.csv
 
 cd docs/architecture && npm install && npm run build   # blueprint viewer (Vite)
 ```
@@ -36,7 +38,7 @@ Invariants that the code and tests rely on:
 - **One finishing-order model.** Plackett-Luce, with Harville as its closed form. `sample_plackett_luce` is the base for the Monte Carlo engine and must match Harville when no shocks are added.
 - **The market is the benchmark.** Report metrics next to `market`, never against a random baseline. Train on all races; graded races (about 60 a year) are too few to train on alone.
 
-**Race-day path (graded races only)**: the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) collects a race card JSON (`racecard.py`) from public sources into `data/race_cards/` → `strength.evaluate_card` → `simulate.simulate_race`.
+**Race-day path (graded races only)**: the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) has the `race-card-collector` agent and parallel `runner-profile-collector` agents (`.claude/agents/`) collect a race card from public sources up to a cutoff into `data/race_cards/<date>-<slug>/`, merges it with `cardtools.merge` (`racecard.py` validates) → `strength.evaluate_card` → `simulate.simulate_race`. The `/verify-race` skill does the same for a past race with a cutoff the evening before, freezes the prediction (sha256), and only then runs the `race-result-checker` agent and `evaluate.py`. Keep that separation: collectors must never see results, and the result is fetched only after the prediction is frozen.
 
 - `factors.compute_factors` abstracts the card, and the history table when given, into one raw value per factor per runner. `factors.FACTORS` is the single list of factors (horse form and aptitude, pedigree, connections, jockey including head-to-head, draw and race-edition trends, workouts, stable-comment score, public consensus), each with a prior weight. To add a factor, append it there and compute it in both the history path (`history_stat_factors` / `horse_factors`) and the card-only path (`card_stat_factors` / card fields).
 - With history (`history.prepare_history`), statistics use only rows dated before the race (a prefix of the date-sorted table) and override the card's `stats`/`trends`. Rates are shrunk toward a prior (`stats.shrunk_rate`); sire/damsire use entity x condition-bin profile vectors (`stats.profile_matrix`, bins in `conditions.py`).

@@ -40,6 +40,15 @@ order (about 2 seconds) with shared pace and track-bias shocks, and picks ◎○
 behind each pick, plus the most likely quinella, trio and trifecta. See
 `examples/race_card.example.json` for the card format.
 
+### Test on a past race
+
+`/verify-race <race name> <date>` builds the prediction from information published before the
+race only, freezes it, then fetches the result and scores it with `aikeiba-evaluate`, which
+appends to `data/predictions/log.csv` and prints a running summary. Data collection is split
+across Claude Code agents in `.claude/agents/` (`race-card-collector`, parallel
+`runner-profile-collector`s, and `race-result-checker`, which runs only after the prediction is
+frozen), so results cannot leak into the inputs.
+
 ### Fit the factor weights
 
 ```bash
@@ -85,6 +94,8 @@ npm run dev
 | `train.py` | Fits factor weights on past graded races (`aikeiba-train`) |
 | `strength.py` | Card → factors → log-strengths, with the reasons per runner |
 | `simulate.py` | 1,000,000-trial Monte Carlo with pace and track-bias shocks (`aikeiba-simulate`) |
+| `cardtools.py` | Merges and validates race cards from the collector agents (`aikeiba-card`) |
+| `evaluate.py` | Scores a frozen prediction against the result and keeps a log (`aikeiba-evaluate`) |
 
 ## Design principles
 
