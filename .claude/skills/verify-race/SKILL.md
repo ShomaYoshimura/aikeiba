@@ -56,12 +56,16 @@ uv run aikeiba-evaluate <dir>/prediction.json <dir>/result.json --log data/predi
 
 1. Setup: race, cutoff, data stage, weights (`prior` or `fitted`), missing factors, sources,
    and whether the result was already known to you.
-2. Prediction vs. result: ◎○▲ and their finishing positions; every runner's predicted win
-   and top-3 probability next to its actual position.
-3. Hits: 馬連 / 三連複 / 三連単 (and at what rank in the top five, if at all).
+2. Prediction vs. result: for each strategy (的中重視 / 両立 / 回収重視), ◎○▲ and their
+   finishing positions, next to the favourite's finish (the baseline); every runner's
+   predicted win and top-3 probability next to its actual position.
+3. Hits: 馬連 / 三連複 / 三連単 (and at what rank in the top five, if at all), and the value
+   strategy's return (say whether payouts came from the result or the card odds).
 4. Calibration of this race: the winner's predicted probability and model rank, the model's
    log loss, and the same for the market when odds were used.
 5. What the model missed: the factors behind the picks (`reasons`) and what distinguished the
    actual top three, from the card only.
-6. The running summary printed from the log. Stress that one race says little: judge the
-   system on many races (the log, and `aikeiba-train` walk-forward on history).
+6. The running summary printed from the log: hit rates per strategy against the favourite,
+   and calibration (ECE and the calibration table). The primary scores are hit rate and
+   calibration (`docs/methodology.md`). Stress that one race says little: with ~100 races a
+   top-3 rate still has about ±10 points of uncertainty.

@@ -23,6 +23,7 @@ import pandas as pd
 
 from aikeiba.model import ModelWeights
 from aikeiba.racecard import RaceCard, load_race_card
+from aikeiba.strategies import StrategyParams, make_picks
 from aikeiba.strength import CardEvaluation, evaluate_card
 
 STYLE_SCORE = {"front": 1.0, "stalker": 0.5, "midfield": -0.25, "closer": -1.0}
@@ -92,16 +93,22 @@ class SimulationResult:
         )
         if self.evaluation.log_market is not None:
             df["market_win"] = np.exp(self.evaluation.log_market)
+            df["win_odds"] = self.odds
+            df["ev"] = self.win * self.odds
         return df.sort_values("win", ascending=False, ignore_index=True)
 
+    @property
+    def odds(self) -> np.ndarray | None:
+        odds = [r.win_odds for r in self.card.runners]
+        return None if any(o is None for o in odds) else np.asarray(odds, dtype=float)
+
+    def strategy_picks(self, params: StrategyParams | None = None) -> dict:
+        """Marks for each strategy in ``strategies.STRATEGIES``."""
+        return make_picks(self.win, self.top2, self.top3, self.odds, params)
+
     def picks(self) -> list[int]:
-        """Indices for ◎ (best win), ○ (best top-2 of the rest), ▲ (best top-3 of the rest)."""
-        chosen: list[int] = []
-        for p in (self.win, self.top2, self.top3):
-            masked = p.copy()
-            masked[chosen] = -1.0
-            chosen.append(int(np.argmax(masked)))
-        return chosen
+        """Runner indices for ◎ ○ ▲ of the hit strategy."""
+        return [i for _, i, _, _ in self.strategy_picks()["hit"]]
 
     def top_combinations(self, kind: str, k: int = 5) -> list[tuple[tuple[int, ...], float]]:
         """Most frequent combinations as (horse numbers, probability)."""
@@ -138,6 +145,22 @@ class SimulationResult:
                 }
                 for m, i in zip(("◎", "○", "▲"), self.picks(), strict=True)
             ],
+            "strategies": {
+                name: [
+                    {
+                        "mark": mark,
+                        "number": self.card.runners[i].number,
+                        "horse": names[i],
+                        "win": float(self.win[i]),
+                        "top3": float(self.top3[i]),
+                        "ev": ev,
+                        "stake": stake,
+                        "reasons": self.evaluation.reasons(i),
+                    }
+                    for mark, i, ev, stake in picks
+                ]
+                for name, picks in self.strategy_picks().items()
+            },
             "missing_factors": self.evaluation.missing_factors(),
             **{
                 kind: [{"numbers": c, "probability": p} for c, p in self.top_combinations(kind)]
@@ -206,10 +229,17 @@ def _format(result: SimulationResult) -> str:
     with pd.option_context("display.width", 120, "display.float_format", "{:.4f}".format):
         lines.append(result.table().to_string(index=False))
     lines.append("")
-    for mark, i in zip(("◎", "○", "▲"), result.picks(), strict=True):
-        r = card.runners[i]
-        why = ", ".join(f"{name} {c:+.2f}" for name, c in ev.reasons(i))
-        lines.append(f"{mark} {r.number:>2} {r.horse}  [{why}]")
+    labels = {"hit": "hit (的中重視)", "balanced": "balanced (両立)", "value": "value (回収重視)"}
+    for name, picks in result.strategy_picks().items():
+        lines.append(f"{labels[name]}:")
+        if not picks:
+            lines.append("  (no runner above the expected-value threshold, or no odds)")
+        for mark, i, exp_value, stake in picks:
+            r = card.runners[i]
+            why = ", ".join(f"{f} {c:+.2f}" for f, c in ev.reasons(i))
+            extra = "" if exp_value is None else f"  EV={exp_value:.2f}"
+            extra += "" if stake is None else f"  stake={stake:.1%}"
+            lines.append(f"  {mark} {r.number:>2} {r.horse}{extra}  [{why}]")
     for kind in ("quinella", "trio", "trifecta"):
         lines.append(f"\nTop {kind}:")
         for combo, p in result.top_combinations(kind):

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from aikeiba.cardtools import merge
-from aikeiba.evaluate import append_log, evaluate, summarize
+from aikeiba.evaluate import append_log, evaluate, runner_rows, summarize
 from aikeiba.racecard import load_race_card
 from aikeiba.simulate import simulate_race
 
@@ -60,7 +60,7 @@ def test_evaluate_scores_picks_and_probabilities(prediction):
         {"number": n, "position": i + 2} for i, n in enumerate(others)
     ]
     row = evaluate(prediction, {"race": "t", "date": "2026-10-04", "finish": finish})
-    assert row["honmei_won"] and row["honmei_finish"] == 1
+    assert row["hit_honmei_won"] and row["hit_honmei_finish"] == 1
     assert row["winner_model_rank"] == 1
     assert 0 < row["winner_prob"] < 1 and row["log_loss"] > 0
     assert "market_log_loss" in row
@@ -80,9 +80,25 @@ def test_log_replaces_same_race_and_summarizes(tmp_path, prediction):
     finish = [
         {"number": r["number"], "position": i + 1} for i, r in enumerate(prediction["runners"])
     ]
-    row = evaluate(prediction, {"race": "t", "date": "d", "finish": finish})
-    append_log(row, log)
-    append_log(row, log)  # same race again replaces the row
+    result = {"race": "t", "date": "d", "finish": finish}
+    row = evaluate(prediction, result)
+    append_log(row, log, runner_rows(prediction, result))
+    append_log(row, log, runner_rows(prediction, result))  # same race again replaces it
     summary = summarize(log)
     assert summary["races"] == 1
-    assert summary["honmei_top3_rate"] == 1.0
+    assert summary["hit_honmei_top3_rate"] == 1.0
+    assert summary["favourite_top3_rate"] is not None
+    assert 0 <= summary["win_ece"] <= 1
+    runners = (tmp_path / "log_runners.csv").read_text().strip().splitlines()
+    assert len(runners) == 1 + len(prediction["runners"])
+
+
+def test_value_strategy_uses_payouts(prediction):
+    value = prediction["strategies"]["value"]
+    numbers = [r["number"] for r in prediction["runners"]]
+    finish = [{"number": n, "position": i + 1} for i, n in enumerate(numbers)]
+    payouts = {"win": {str(numbers[0]): 520}}
+    row = evaluate(prediction, {"race": "t", "date": "d", "finish": finish, "payouts": payouts})
+    assert row["value_bets"] == len(value)
+    expected = 5.2 if any(p["number"] == numbers[0] for p in value) else 0.0
+    assert row["value_return"] == expected

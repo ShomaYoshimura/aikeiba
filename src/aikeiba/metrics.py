@@ -74,3 +74,12 @@ def calibration_table(probs, is_winner, bins=(0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 1.0
     return f.groupby("bin", observed=True).agg(
         n=("y", "size"), predicted=("p", "mean"), observed=("y", "mean")
     )
+
+
+def expected_calibration_error(probs, outcomes, bins=(0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 1.0)) -> float:
+    """Share-weighted mean |predicted - observed| over probability bins (0 = perfect)."""
+    table = calibration_table(probs, outcomes, bins)
+    if table.empty:
+        return float("nan")
+    weights = table["n"] / table["n"].sum()
+    return float((weights * (table["predicted"] - table["observed"]).abs()).sum())

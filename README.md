@@ -49,6 +49,9 @@ across Claude Code agents in `.claude/agents/` (`race-card-collector`, parallel
 `runner-profile-collector`s, and `race-result-checker`, which runs only after the prediction is
 frozen), so results cannot leak into the inputs.
 
+How predictions are made and scored (three marking strategies; hit rate and calibration as the
+primary scores) is described in [docs/methodology.md](docs/methodology.md).
+
 ### Fit the factor weights
 
 ```bash
@@ -96,6 +99,7 @@ npm run dev
 | `simulate.py` | 1,000,000-trial Monte Carlo with pace and track-bias shocks (`aikeiba-simulate`) |
 | `cardtools.py` | Merges and validates race cards from the collector agents (`aikeiba-card`) |
 | `evaluate.py` | Scores a frozen prediction against the result and keeps a log (`aikeiba-evaluate`) |
+| `strategies.py` | Three marking strategies: hit (的中重視), balanced (両立), value (回収重視) |
 
 ## Design principles
 

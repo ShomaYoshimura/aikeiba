@@ -17,6 +17,7 @@ import pandas as pd
 
 from aikeiba.factors import FACTOR_NAMES, FACTORS, compute_factors
 from aikeiba.history import card_from_history, prepare_history
+from aikeiba.metrics import expected_calibration_error
 from aikeiba.model import ModelWeights, fit_plackett_luce, prior_weights, standardize
 from aikeiba.schema import GRADED
 
@@ -55,20 +56,37 @@ def build_examples(
     return examples
 
 
-def _winner_log_loss(examples, weights: ModelWeights, use_market: bool) -> float:
-    losses = []
-    for e in examples:
-        lm = e.log_market if use_market else None
+def _probs(e: RaceExample, weights: ModelWeights | None, use_market: bool) -> np.ndarray:
+    """Win probabilities for one example; ``weights=None`` means the market alone."""
+    if weights is None:
+        s = e.log_market
+    else:
         s = e.x @ weights.vector()
-        if lm is not None:
-            s = weights.alpha * s + weights.beta * lm
-        s = s - s.max()
-        losses.append(-(s[e.order[0]] - np.log(np.exp(s).sum())))
-    return float(np.mean(losses))
+        if use_market and e.log_market is not None:
+            s = weights.alpha * s + weights.beta * e.log_market
+    p = np.exp(s - s.max())
+    return p / p.sum()
 
 
-def _market_log_loss(examples) -> float:
-    return float(np.mean([-e.log_market[e.order[0]] for e in examples]))
+def _scores(examples, weights: ModelWeights | None, use_market: bool) -> dict:
+    """Winner log loss, top-pick win and top-3 rates, and win-probability ECE."""
+    probs = [_probs(e, weights, use_market) for e in examples]
+    top3_sets = [set(e.order[:3].tolist()) for e in examples]
+    picks = [int(np.argmax(p)) for p in probs]
+    won = [
+        np.isin(np.arange(len(p)), e.order[:1]).astype(int)
+        for p, e in zip(probs, examples, strict=True)
+    ]
+    return {
+        "log_loss": float(
+            np.mean([-np.log(p[e.order[0]]) for p, e in zip(probs, examples, strict=True)])
+        ),
+        "top_pick_win": float(
+            np.mean([k == e.order[0] for k, e in zip(picks, examples, strict=True)])
+        ),
+        "top_pick_top3": float(np.mean([k in s for k, s in zip(picks, top3_sets, strict=True)])),
+        "ece": expected_calibration_error(np.concatenate(probs), np.concatenate(won)),
+    }
 
 
 def fit_weights(
@@ -106,7 +124,10 @@ def fit_weights(
 def walk_forward(
     examples: list[RaceExample], test_years, l2: float = 5.0, min_train: int = 30
 ) -> pd.DataFrame:
-    """Winner log loss per test year: fitted vs. prior weights, with and without the market."""
+    """Per test year and predictor: winner log loss, top-pick win / top-3 rates and ECE.
+
+    Predictors: fitted and prior weights without odds, fitted weights combined with the
+    market, and the market alone (its top pick is the favourite)."""
     rows = []
     prior = prior_weights()
     for year in test_years:
@@ -115,19 +136,32 @@ def walk_forward(
         if len(train) < min_train or not test:
             continue
         fitted = fit_weights(train, l2=l2)
-        row = {
-            "test_year": year,
-            "n_train": len(train),
-            "n_test": len(test),
-            "fitted": _winner_log_loss(test, fitted, use_market=False),
-            "prior": _winner_log_loss(test, prior, use_market=False),
-            "uniform": float(np.mean([np.log(len(e.x)) for e in test])),
-        }
         with_odds = [e for e in test if e.log_market is not None]
+        predictors = [("fitted", test, fitted, False), ("prior", test, prior, False)]
         if with_odds:
-            row["fitted+market"] = _winner_log_loss(with_odds, fitted, use_market=True)
-            row["market"] = _market_log_loss(with_odds)
-        rows.append(row)
+            predictors += [
+                ("fitted+market", with_odds, fitted, True),
+                ("market", with_odds, None, True),
+            ]
+        for name, races, weights, use_market in predictors:
+            rows.append(
+                {
+                    "test_year": year,
+                    "predictor": name,
+                    "n_train": len(train),
+                    "n_test": len(races),
+                    **_scores(races, weights, use_market),
+                }
+            )
+        rows.append(
+            {
+                "test_year": year,
+                "predictor": "uniform",
+                "n_train": len(train),
+                "n_test": len(test),
+                "log_loss": float(np.mean([np.log(len(e.x)) for e in test])),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -169,7 +203,7 @@ def main(argv=None) -> None:
         print(f"{len(examples)} graded races as examples\n")
         report = walk_forward(examples, test_years, l2=args.l2)
         if not report.empty:
-            print("Walk-forward winner log loss (lower is better):")
+            print("Walk-forward (log_loss and ece: lower is better; top_pick_*: higher is better):")
             print(report.to_string(index=False), "\n")
         weights = fit_weights(examples, l2=args.l2)
         print(f"market combination: alpha={weights.alpha:.3f} beta={weights.beta:.3f}")

@@ -56,4 +56,5 @@ def test_fit_and_walk_forward(examples):
     w = fit_weights(examples, l2=5.0)
     assert w.fitted and w.meta["n_races"] == len(examples)
     report = walk_forward(examples, [2022], l2=5.0, min_train=10)
-    assert set(report.columns) >= {"fitted", "prior", "market", "fitted+market"}
+    assert set(report["predictor"]) == {"fitted", "prior", "fitted+market", "market", "uniform"}
+    assert {"log_loss", "top_pick_win", "top_pick_top3", "ece"} <= set(report.columns)

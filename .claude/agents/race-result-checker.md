@@ -18,12 +18,16 @@ The caller gives you: the race (name, date, course) and an output path.
   "date": "YYYY-MM-DD",
   "finish": [{"number": 16, "position": 1}, {"number": 6, "position": 2}],
   "scratched": [12],
+  "payouts": {"win": {"16": 1850}},
   "sources": ["https://..."]
 }
 ```
 
   Include every finisher. Dead heats share a position. Leave scratched and non-finishing
   horses out of `finish` (list scratched ones in `scratched`).
+- `payouts.win`: the official win payout in yen per 100 yen, keyed by horse number (both
+  numbers for a dead heat). Leave it out if you cannot confirm it; the evaluation then falls
+  back to the odds in the card and says so.
 - Do not read or change any prediction file.
 
 Reply with the output path, the top three (number and name), and the sources.

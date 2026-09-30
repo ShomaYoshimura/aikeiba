@@ -57,11 +57,12 @@ and run again.
 
 1. The race, the data stage, the going, and the sources.
 2. Every runner's win, top-2 and top-3 probability.
-3. The picks: ◎ (highest win probability), ○ (highest top-2 of the rest), ▲ (highest top-3 of
-   the rest). For each, explain the result with the `reasons` in the JSON (the factors that
-   moved its score most), translated into plain Japanese, plus any notable comment.
+3. The marks of all three strategies in `strategies` (see `docs/methodology.md`):
+   的中重視 (hit), 両立 (balanced) and 回収重視 (value, with expected value and Kelly stake;
+   it may be empty). Explain each ◎ with its `reasons` (the factors that moved its score
+   most), translated into plain Japanese, plus any notable comment. Say where the strategies
+   disagree and why (usually price).
 4. The five most likely 馬連, 三連複 and 三連単 combinations.
-5. With odds, runners whose win probability × odds exceeds 1.1, as value candidates.
 6. Caveats, briefly:
    - Whether the weights are `prior` (hand-set, not validated) or `fitted` (and on how many races).
    - Factors that were unknown for every runner (`missing_factors`).
