@@ -16,6 +16,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run aikeiba-backtest                   # walk-forward backtest on synthetic data
 uv run aikeiba-backtest --data runners.parquet --test-years 2023 2024
 uv run aikeiba-simulate examples/race_card.example.json --sims 1000000   # one race
+uv run aikeiba-train --history data/history.parquet --out data/models/weights.json  # omit --history for synthetic
 
 cd docs/architecture && npm install && npm run build   # blueprint viewer (Vite)
 ```
@@ -35,7 +36,13 @@ Invariants that the code and tests rely on:
 - **One finishing-order model.** Plackett-Luce, with Harville as its closed form. `sample_plackett_luce` is the base for the Monte Carlo engine and must match Harville when no shocks are added.
 - **The market is the benchmark.** Report metrics next to `market`, never against a random baseline. Train on all races; graded races (about 60 a year) are too few to train on alone.
 
-**Race-day path** (separate from the backtest): the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) collects a race card JSON from public sources into `data/race_cards/` → `racecard.load_race_card` → `strength.log_strengths` (market log-probability plus within-race z-scores of form, jockey, going and course records; missing fields count as the field average) → `simulate.simulate_race`. Each trial adds Gumbel noise (Plackett-Luce) and shared shocks: pace (driven by the number of front runners, interacting with running style), inside/outside track bias (wider on softer going) and form uncertainty that shrinks with known runs. With `shocks=False` win rates must equal the softmax of the strengths; keep that test passing. The weights in `StrengthWeights` and `ShockParams` are unfitted priors; once real data exists, fit them with the backtest instead of hand-tuning.
+**Race-day path (graded races only)**: the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) collects a race card JSON (`racecard.py`) from public sources into `data/race_cards/` → `strength.evaluate_card` → `simulate.simulate_race`.
+
+- `factors.compute_factors` abstracts the card, and the history table when given, into one raw value per factor per runner. `factors.FACTORS` is the single list of factors (horse form and aptitude, pedigree, connections, jockey including head-to-head, draw and race-edition trends, workouts, stable-comment score, public consensus), each with a prior weight. To add a factor, append it there and compute it in both the history path (`history_stat_factors` / `horse_factors`) and the card-only path (`card_stat_factors` / card fields).
+- With history (`history.prepare_history`), statistics use only rows dated before the race (a prefix of the date-sorted table) and override the card's `stats`/`trends`. Rates are shrunk toward a prior (`stats.shrunk_rate`); sire/damsire use entity x condition-bin profile vectors (`stats.profile_matrix`, bins in `conditions.py`).
+- `model.standardize` z-scores factors within the race (unknown = 0 = field average, clipped at ±3). `model.log_strengths` = x·w, or alpha·x·w + beta·log(market probability) when every runner has odds.
+- `train.py` (`aikeiba-train`) fits w by Plackett-Luce likelihood of the top 3 on past graded races (examples) while statistics come from all races, fits alpha/beta on later races than w, reports walk-forward winner log loss against prior weights, uniform and the market, and saves `ModelWeights` JSON. Without a weights file the prior weights are used, and the output says so.
+- Each simulation trial adds Gumbel noise (Plackett-Luce) and shared shocks: pace (number of front runners × running style), inside/outside track bias (wider on softer going) and form uncertainty shrinking with known runs. With `shocks=False` win rates must equal the softmax of the strengths; keep that test passing. `ShockParams` values are still unfitted priors.
 
 `synthetic.py` exists so the pipeline and tests run without licensed data; it has no deliberate model edge. Real race data is never committed (`data/`, `*.parquet` are gitignored). JRA-VAN comes through JV-Link, a Windows-only COM component, so ingestion is planned as a separate Windows worker (`ingest/windows/`) that writes parquet.
 

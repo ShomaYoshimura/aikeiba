@@ -32,10 +32,26 @@ recent form and going from public sources into a race card, then runs:
 uv run aikeiba-simulate data/race_cards/<card>.json --sims 1000000
 ```
 
-The simulation runs 1,000,000 trials of the finishing order (about 2 seconds) with shared pace
-and track-bias shocks, and picks ◎○▲ plus the most likely quinella, trio and trifecta.
-See `examples/race_card.example.json` for the card format. The strength weights and shock sizes
-are provisional priors until they are fitted on real data (ROADMAP Phase 1).
+The system targets graded races (G1/G2/G3). Each runner is abstracted into a vector of 29
+factors: past performance and aptitude, pedigree, trainer, owner, breeder and region, jockey
+form and head-to-head record, draw and race-edition trends, workouts, a scored stable comment
+and the share of public predictions. The simulation runs 1,000,000 trials of the finishing
+order (about 2 seconds) with shared pace and track-bias shocks, and picks ◎○▲ with the factors
+behind each pick, plus the most likely quinella, trio and trifecta. See
+`examples/race_card.example.json` for the card format.
+
+### Fit the factor weights
+
+```bash
+uv run aikeiba-train --history data/history.parquet --out data/models/weights.json
+uv run aikeiba-simulate card.json --history data/history.parquet --weights data/models/weights.json
+```
+
+Every past graded race becomes a training example, with its factors computed as they were on
+race day. The weights are fitted by Plackett-Luce likelihood of the first three places, and a
+walk-forward report compares them with the prior weights, a uniform guess and the market.
+Without `--history` it runs on synthetic data. Until weights are fitted on real data, the
+simulation uses hand-set prior weights and says so.
 
 The backtest prints, for each test year, win log loss, Brier score, top-pick place rate and
 value-bet ROI for the model and for market-implied probabilities, over all races and over
@@ -62,7 +78,12 @@ npm run dev
 | `validation.py` | Walk-forward splits by year |
 | `backtest.py` | Model vs. market report (`aikeiba-backtest`) |
 | `racecard.py` | Race card JSON for one upcoming race |
-| `strength.py` | Log-strength per runner from odds, form, jockey and aptitude records |
+| `history.py` | History table of past races and its derived columns |
+| `conditions.py`, `stats.py` | Condition bins, similarity, shrunk rates, profile vectors, head-to-head |
+| `factors.py` | The 29 factors per runner, from history or from the card |
+| `model.py` | Within-race standardization and the linear Plackett-Luce model |
+| `train.py` | Fits factor weights on past graded races (`aikeiba-train`) |
+| `strength.py` | Card → factors → log-strengths, with the reasons per runner |
 | `simulate.py` | 1,000,000-trial Monte Carlo with pace and track-bias shocks (`aikeiba-simulate`) |
 
 ## Design principles

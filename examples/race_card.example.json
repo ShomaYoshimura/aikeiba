@@ -1,21 +1,944 @@
 {
-  "race": {
-    "name": "Example Stakes (fictional)",
-    "date": "2026-10-04",
-    "course": "Nakayama",
-    "surface": "turf",
-    "distance": 1200,
-    "going": "稍重"
+ "race": {
+  "name": "Example Sprint Stakes (fictional)",
+  "grade": "G1",
+  "date": "2026-10-04",
+  "course": "Nakayama",
+  "surface": "芝",
+  "distance": 1200,
+  "going": "稍重"
+ },
+ "runners": [
+  {
+   "number": 1,
+   "draw": 1,
+   "horse": "Horse A",
+   "jockey": "Jockey A",
+   "trainer": "Trainer A",
+   "owner": "Owner A",
+   "sire": "Sire X",
+   "damsire": "Damsire P",
+   "breeder": "Breeder A",
+   "region": "日高",
+   "age": 4,
+   "sex": "牡",
+   "weight_carried": 58,
+   "horse_weight": 480,
+   "horse_weight_change": 2,
+   "win_odds": 3.2,
+   "running_style": "逃げ",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "OP",
+     "jockey": "Jockey A",
+     "last3f": 34.7
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "稍重",
+     "grade": "OP",
+     "jockey": "Jockey A",
+     "last3f": 34.2
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 4,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "重",
+     "grade": "OP",
+     "jockey": "Jockey A",
+     "last3f": 35.1
+    },
+    {
+     "date": "2026-05-13",
+     "finish": 1,
+     "field_size": 16,
+     "race_name": "Prep 3",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "良",
+     "grade": "OP",
+     "jockey": "Jockey A",
+     "last3f": 35.0
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "栗東坂路",
+     "time_4f": 52.3,
+     "last_1f": 12.4,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Moving better than ever; the trainer expects a big run.",
+   "comment_score": 2,
+   "consensus_share": 0.45,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 90
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 20
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 50
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 40
+    },
+    "jockey_h2h": 0.6
+   }
   },
-  "runners": [
-    {"number": 1, "draw": 1, "horse": "Horse A", "jockey": "Jockey A", "win_odds": 3.2, "running_style": "逃げ", "recent_finishes": [1, 2, 1, 4, 3], "jockey_win_rate": 0.18, "going_record": {"starts": 3, "top3": 2}, "course_record": {"starts": 2, "top3": 2}},
-    {"number": 2, "draw": 1, "horse": "Horse B", "jockey": "Jockey B", "win_odds": 5.8, "running_style": "差し", "recent_finishes": [3, 1, 5, 2], "jockey_win_rate": 0.12, "going_record": {"starts": 1, "top3": 0}},
-    {"number": 3, "draw": 2, "horse": "Horse C", "jockey": "Jockey C", "win_odds": 8.5, "running_style": "先行", "recent_finishes": [2, 6, 3, 3, 8], "jockey_win_rate": 0.09},
-    {"number": 4, "draw": 2, "horse": "Horse D", "jockey": "Jockey D", "win_odds": 12.0, "running_style": "追込", "recent_finishes": [5, 4, 2, 7, 1], "jockey_win_rate": 0.15, "going_record": {"starts": 4, "top3": 3}},
-    {"number": 5, "draw": 3, "horse": "Horse E", "jockey": "Jockey E", "win_odds": 4.5, "running_style": "先行", "recent_finishes": [1, 3, 2], "jockey_win_rate": 0.21, "course_record": {"starts": 1, "top3": 1}},
-    {"number": 6, "draw": 3, "horse": "Horse F", "jockey": "Jockey F", "win_odds": 25.0, "running_style": "逃げ", "recent_finishes": [9, 7, 10, 6, 8], "jockey_win_rate": 0.06},
-    {"number": 7, "draw": 4, "horse": "Horse G", "jockey": "Jockey G", "win_odds": 18.0, "running_style": "差し", "recent_finishes": [4, 5, 3, 9, 2], "jockey_win_rate": 0.08},
-    {"number": 8, "draw": 4, "horse": "Horse H", "jockey": "Jockey H", "win_odds": 40.0, "running_style": "追込", "recent_finishes": [], "jockey_win_rate": 0.10}
-  ],
-  "sources": ["Fictional example for tests and documentation"]
+  {
+   "number": 2,
+   "draw": 1,
+   "horse": "Horse B",
+   "jockey": "Jockey B",
+   "trainer": "Trainer B",
+   "owner": "Owner B",
+   "sire": "Sire Y",
+   "damsire": "Damsire Q",
+   "breeder": "Breeder B",
+   "region": "胆振",
+   "age": 5,
+   "sex": "牝",
+   "weight_carried": 56,
+   "horse_weight": 484,
+   "horse_weight_change": -4,
+   "win_odds": 5.8,
+   "running_style": "差し",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "OP",
+     "jockey": "Jockey B",
+     "last3f": 34.9
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 4,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "重",
+     "grade": "G2",
+     "jockey": "Jockey B",
+     "last3f": 35.1
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 1,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "重",
+     "grade": "G2",
+     "jockey": "Jockey B",
+     "last3f": 34.2
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "美浦W",
+     "time_4f": 53.3,
+     "last_1f": 12.2,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Sharp in work, but the draw is a concern.",
+   "comment_score": 1,
+   "consensus_share": 0.2,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 60
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 10
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 40
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 30
+    },
+    "jockey_h2h": 0.5
+   }
+  },
+  {
+   "number": 3,
+   "draw": 2,
+   "horse": "Horse C",
+   "jockey": "Jockey C",
+   "trainer": "Trainer C",
+   "owner": "Owner C",
+   "sire": "Sire Z",
+   "damsire": "Damsire P",
+   "breeder": "Breeder C",
+   "region": "日高",
+   "age": 4,
+   "sex": "牡",
+   "weight_carried": 58,
+   "horse_weight": 488,
+   "horse_weight_change": 0,
+   "win_odds": 8.5,
+   "running_style": "先行",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "OP",
+     "jockey": "Jockey Z",
+     "last3f": 34.1
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 4,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "良",
+     "grade": "OP",
+     "jockey": "Jockey C",
+     "last3f": 35.1
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 6,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey C",
+     "last3f": 34.0
+    },
+    {
+     "date": "2026-05-13",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 3",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G2",
+     "jockey": "Jockey C",
+     "last3f": 34.4
+    },
+    {
+     "date": "2026-04-14",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 4",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "G3",
+     "jockey": "Jockey C",
+     "last3f": 35.1
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "栗東坂路",
+     "time_4f": 52.1,
+     "last_1f": 12.1,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Normal preparation.",
+   "comment_score": 0,
+   "consensus_share": 0.08,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 45
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 6
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 30
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 35
+    },
+    "jockey_h2h": 0.45
+   }
+  },
+  {
+   "number": 4,
+   "draw": 2,
+   "horse": "Horse D",
+   "jockey": "Jockey D",
+   "trainer": "Trainer D",
+   "owner": "Owner D",
+   "sire": "Sire X",
+   "damsire": "Damsire Q",
+   "breeder": "Breeder A",
+   "region": "Imported",
+   "age": 6,
+   "sex": "セ",
+   "weight_carried": 58,
+   "horse_weight": 492,
+   "horse_weight_change": 10,
+   "win_odds": 12.0,
+   "running_style": "追込",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 6,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Hanshin",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "良",
+     "grade": "G2",
+     "jockey": "Jockey D",
+     "last3f": 34.3
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "良",
+     "grade": "G3",
+     "jockey": "Jockey D",
+     "last3f": 34.2
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey D",
+     "last3f": 34.3
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "美浦W",
+     "time_4f": 52.3,
+     "last_1f": 12.3,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Coming back from a minor injury; not fully fit.",
+   "comment_score": -1,
+   "consensus_share": 0.05,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 70
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 12
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 35
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 40
+    },
+    "jockey_h2h": 0.52
+   }
+  },
+  {
+   "number": 5,
+   "draw": 3,
+   "horse": "Horse E",
+   "jockey": "Jockey E",
+   "trainer": "Trainer E",
+   "owner": "Owner A",
+   "sire": "Sire Y",
+   "damsire": "Damsire P",
+   "breeder": "Breeder B",
+   "region": "日高",
+   "age": 3,
+   "sex": "牝",
+   "weight_carried": 55,
+   "horse_weight": 496,
+   "horse_weight_change": -2,
+   "win_odds": 4.5,
+   "running_style": "先行",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey E",
+     "last3f": 34.8
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "G3",
+     "jockey": "Jockey E",
+     "last3f": 34.6
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 4,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Hanshin",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "重",
+     "grade": "OP",
+     "jockey": "Jockey E",
+     "last3f": 34.3
+    },
+    {
+     "date": "2026-05-13",
+     "finish": 3,
+     "field_size": 16,
+     "race_name": "Prep 3",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey E",
+     "last3f": 34.3
+    },
+    {
+     "date": "2026-04-14",
+     "finish": 2,
+     "field_size": 16,
+     "race_name": "Prep 4",
+     "course": "Hanshin",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "良",
+     "grade": "OP",
+     "jockey": "Jockey E",
+     "last3f": 33.9
+    },
+    {
+     "date": "2026-03-15",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 5",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "稍重",
+     "grade": "OP",
+     "jockey": "Jockey E",
+     "last3f": 34.5
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "栗東坂路",
+     "time_4f": 53.2,
+     "last_1f": 11.9,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "In peak condition according to the stable.",
+   "comment_score": 2,
+   "consensus_share": 0.35,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 110
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 24
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 60
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 30
+    },
+    "jockey_h2h": 0.63
+   }
+  },
+  {
+   "number": 6,
+   "draw": 3,
+   "horse": "Horse F",
+   "jockey": "Jockey F",
+   "trainer": "Trainer A",
+   "owner": "Owner B",
+   "sire": "Sire Z",
+   "damsire": "Damsire Q",
+   "breeder": "Breeder C",
+   "region": "胆振",
+   "age": 7,
+   "sex": "牡",
+   "weight_carried": 58,
+   "horse_weight": 500,
+   "horse_weight_change": 6,
+   "win_odds": 25.0,
+   "running_style": "逃げ",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 8,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Hanshin",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey F",
+     "last3f": 35.0
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 7,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "OP",
+     "jockey": "Jockey F",
+     "last3f": 34.1
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 9,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "良",
+     "grade": "OP",
+     "jockey": "Jockey F",
+     "last3f": 34.5
+    },
+    {
+     "date": "2026-05-13",
+     "finish": 12,
+     "field_size": 16,
+     "race_name": "Prep 3",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "稍重",
+     "grade": "G3",
+     "jockey": "Jockey F",
+     "last3f": 34.8
+    },
+    {
+     "date": "2026-04-14",
+     "finish": 8,
+     "field_size": 16,
+     "race_name": "Prep 4",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "良",
+     "grade": "G3",
+     "jockey": "Jockey F",
+     "last3f": 34.9
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "美浦W",
+     "time_4f": 52.4,
+     "last_1f": 12.1,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Struggling for form; blinkers added.",
+   "comment_score": -1,
+   "consensus_share": 0.01,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 30
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 3
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 20
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 35
+    },
+    "jockey_h2h": 0.38
+   }
+  },
+  {
+   "number": 7,
+   "draw": 4,
+   "horse": "Horse G",
+   "jockey": "Jockey G",
+   "trainer": "Trainer B",
+   "owner": "Owner C",
+   "sire": "Sire X",
+   "damsire": "Damsire P",
+   "breeder": "Breeder A",
+   "region": "日高",
+   "age": 5,
+   "sex": "牡",
+   "weight_carried": 58,
+   "horse_weight": 504,
+   "horse_weight_change": 0,
+   "win_odds": 18.0,
+   "running_style": "差し",
+   "past_runs": [
+    {
+     "date": "2026-08-10",
+     "finish": 4,
+     "field_size": 16,
+     "race_name": "Prep 0",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "良",
+     "grade": "G3",
+     "jockey": "Jockey G",
+     "last3f": 35.0
+    },
+    {
+     "date": "2026-07-11",
+     "finish": 7,
+     "field_size": 16,
+     "race_name": "Prep 1",
+     "course": "Tokyo",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "稍重",
+     "grade": "OP",
+     "jockey": "Jockey G",
+     "last3f": 33.9
+    },
+    {
+     "date": "2026-06-12",
+     "finish": 7,
+     "field_size": 16,
+     "race_name": "Prep 2",
+     "course": "Hanshin",
+     "surface": "turf",
+     "distance": 1200,
+     "going": "重",
+     "grade": "G3",
+     "jockey": "Jockey G",
+     "last3f": 34.6
+    },
+    {
+     "date": "2026-05-13",
+     "finish": 5,
+     "field_size": 16,
+     "race_name": "Prep 3",
+     "course": "Kyoto",
+     "surface": "turf",
+     "distance": 1400,
+     "going": "重",
+     "grade": "G3",
+     "jockey": "Jockey G",
+     "last3f": 34.4
+    },
+    {
+     "date": "2026-04-14",
+     "finish": 6,
+     "field_size": 16,
+     "race_name": "Prep 4",
+     "course": "Nakayama",
+     "surface": "turf",
+     "distance": 1600,
+     "going": "良",
+     "grade": "G2",
+     "jockey": "Jockey G",
+     "last3f": 33.8
+    }
+   ],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "栗東坂路",
+     "time_4f": 53.9,
+     "last_1f": 12.3,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "Steady progress in training.",
+   "comment_score": 0,
+   "consensus_share": 0.03,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 40
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 6
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 30
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 40
+    },
+    "jockey_h2h": 0.44
+   }
+  },
+  {
+   "number": 8,
+   "draw": 4,
+   "horse": "Horse H",
+   "jockey": "Jockey H",
+   "trainer": "Trainer C",
+   "owner": "Owner D",
+   "sire": "Sire Y",
+   "damsire": "Damsire Q",
+   "breeder": "Breeder B",
+   "region": "Imported",
+   "age": 4,
+   "sex": "牝",
+   "weight_carried": 56,
+   "horse_weight": 508,
+   "horse_weight_change": -12,
+   "win_odds": 40.0,
+   "running_style": "追込",
+   "past_runs": [],
+   "workouts": [
+    {
+     "date": "2026-09-30",
+     "course": "美浦W",
+     "time_4f": 54.0,
+     "last_1f": 11.9,
+     "intensity": "強め"
+    }
+   ],
+   "stable_comment": "First run after a long layoff.",
+   "comment_score": -1,
+   "consensus_share": 0.0,
+   "stats": {
+    "jockey_year": {
+     "starts": 300,
+     "top3": 50
+    },
+    "jockey_graded": {
+     "starts": 60,
+     "top3": 8
+    },
+    "trainer": {
+     "starts": 200,
+     "top3": 25
+    },
+    "sire_condition": {
+     "starts": 150,
+     "top3": 30
+    },
+    "jockey_h2h": 0.47
+   }
+  }
+ ],
+ "trends": {
+  "draw": {
+   "1": {
+    "starts": 20,
+    "top3": 6
+   },
+   "2": {
+    "starts": 20,
+    "top3": 5
+   },
+   "3": {
+    "starts": 20,
+    "top3": 5
+   },
+   "4": {
+    "starts": 20,
+    "top3": 4
+   },
+   "5": {
+    "starts": 20,
+    "top3": 4
+   },
+   "6": {
+    "starts": 20,
+    "top3": 3
+   },
+   "7": {
+    "starts": 20,
+    "top3": 3
+   },
+   "8": {
+    "starts": 20,
+    "top3": 2
+   }
+  },
+  "age": {
+   "3": {
+    "starts": 15,
+    "top3": 4
+   },
+   "4": {
+    "starts": 40,
+    "top3": 10
+   },
+   "5": {
+    "starts": 45,
+    "top3": 9
+   },
+   "6": {
+    "starts": 30,
+    "top3": 5
+   },
+   "7": {
+    "starts": 20,
+    "top3": 2
+   }
+  },
+  "running_style": {
+   "front": {
+    "starts": 20,
+    "top3": 6
+   },
+   "stalker": {
+    "starts": 50,
+    "top3": 13
+   },
+   "midfield": {
+    "starts": 50,
+    "top3": 8
+   },
+   "closer": {
+    "starts": 40,
+    "top3": 3
+   }
+  }
+ },
+ "course_draw_stats": {
+  "1": {
+   "starts": 400,
+   "top3": 92
+  },
+  "2": {
+   "starts": 400,
+   "top3": 88
+  },
+  "3": {
+   "starts": 400,
+   "top3": 86
+  },
+  "4": {
+   "starts": 400,
+   "top3": 82
+  },
+  "5": {
+   "starts": 400,
+   "top3": 80
+  },
+  "6": {
+   "starts": 400,
+   "top3": 76
+  },
+  "7": {
+   "starts": 400,
+   "top3": 72
+  },
+  "8": {
+   "starts": 400,
+   "top3": 68
+  }
+ },
+ "sources": [
+  "Fictional example for tests and documentation"
+ ]
 }

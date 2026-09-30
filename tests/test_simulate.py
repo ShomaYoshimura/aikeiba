@@ -6,7 +6,7 @@ import pytest
 
 from aikeiba.racecard import load_race_card, parse_race_card
 from aikeiba.simulate import main, simulate_race
-from aikeiba.strength import form_score, log_strengths, market_probabilities, record_score
+from aikeiba.strength import log_strengths, market_log_probabilities
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "race_card.example.json"
 
@@ -27,8 +27,11 @@ def minimal_card(**runner_fields):
 
 def test_example_card_parses_japanese_aliases(card):
     assert card.going == "yielding"
+    assert card.surface == "turf"
+    assert card.is_graded
     assert card.runners[0].running_style == "front"
     assert card.runners[3].running_style == "closer"
+    assert card.runners[0].past_runs[0].going in {"good", "yielding", "soft", "heavy"}
 
 
 def test_rejects_invalid_cards():
@@ -47,11 +50,17 @@ def test_without_shocks_win_rates_match_softmax_of_strengths(card):
 def test_market_only_card_uses_market_strengths():
     card = minimal_card(win_odds=[2.0, 4.0, 8.0])
     p = np.exp(log_strengths(card))
-    np.testing.assert_allclose(p / p.sum(), market_probabilities(card))
+    np.testing.assert_allclose(p / p.sum(), np.exp(market_log_probabilities(card)))
+
+
+def runs(*finishes):
+    return [
+        {"date": f"2026-0{i + 1}-01", "finish": f, "field_size": 12} for i, f in enumerate(finishes)
+    ]
 
 
 def test_without_odds_form_decides_strength():
-    card = minimal_card(recent_finishes=[[1, 1, 2], [5, 6, 4], [9, 8, 10]])
+    card = minimal_card(past_runs=[runs(1, 1, 2), runs(5, 6, 4), runs(9, 8, 10)])
     s = log_strengths(card)
     assert s[0] > s[1] > s[2]
 
@@ -96,16 +105,12 @@ def test_top_combinations_use_horse_numbers(card):
     assert 0 < p < 1
 
 
-def test_helpers():
-    assert np.isnan(form_score(()))
-    assert form_score((1,)) == 0.0
-    assert np.isnan(record_score(None))
-
-
 def test_cli_writes_json(tmp_path, capsys):
     out = tmp_path / "result.json"
     main([str(EXAMPLE), "--sims", "20000", "--json", str(out)])
     data = json.loads(out.read_text(encoding="utf-8"))
     assert [p["mark"] for p in data["picks"]] == ["◎", "○", "▲"]
+    assert data["picks"][0]["reasons"]
+    assert data["weights"] == "prior" and data["uses_market"]
     assert data["n_sims"] == 20000
     assert "◎" in capsys.readouterr().out

@@ -158,6 +158,15 @@ const layers = [
     summary: "全特徴量を統合した着順予測モデル群。ベースライン1本から始め、効果のあるモデルだけを追加",
     modules: [
       {
+        name: "ファクターモデル（条件付きロジット）",
+        tech: "NumPy / SciPy",
+        phase: "P1",
+        desc: "馬・血統・関係者・騎手（対戦成績含む）・枠/過去傾向・調教・厩舎コメント・予想傾向の29因子をレース内で標準化したベクトルに変換し、過去の重賞の1〜3着の尤度（Plackett-Luce）で重みを学習",
+        inputs: ["feature_store", "race_card"],
+        outputs: ["factor_vectors", "ranking_scores"],
+        detail: "実装済み（aikeiba-train）。統計は全レースから、学習例は重賞のみ。オッズがあれば市場確率と2段階で結合（Benter方式）",
+      },
+      {
         name: "ランキング学習モデル（ベースライン）",
         tech: "LightGBM LambdaMART",
         phase: "P1",

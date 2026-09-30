@@ -21,8 +21,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from aikeiba.model import ModelWeights
 from aikeiba.racecard import RaceCard, load_race_card
-from aikeiba.strength import log_strengths, runs_known
+from aikeiba.strength import CardEvaluation, evaluate_card
 
 STYLE_SCORE = {"front": 1.0, "stalker": 0.5, "midfield": -0.25, "closer": -1.0}
 
@@ -40,7 +41,11 @@ class ShockParams:
 
 
 def race_shocks(
-    card: RaceCard, n_sims: int, rng: np.random.Generator, params: ShockParams
+    card: RaceCard,
+    n_sims: int,
+    rng: np.random.Generator,
+    params: ShockParams,
+    n_runs: np.ndarray,
 ) -> np.ndarray:
     n = card.field_size
     style = np.array([STYLE_SCORE.get(r.running_style, 0.0) for r in card.runners])
@@ -54,13 +59,14 @@ def race_shocks(
     bias = rng.normal(0.0, params.track_bias_sd[card.going], (n_sims, 1))
     shocks -= bias * position  # bias > 0 favours the inside
 
-    sigma = params.unknown_form_sd / np.sqrt(1.0 + runs_known(card))
+    sigma = params.unknown_form_sd / np.sqrt(1.0 + n_runs)
     return shocks + rng.normal(size=(n_sims, n)) * sigma
 
 
 @dataclass
 class SimulationResult:
     card: RaceCard
+    evaluation: CardEvaluation
     n_sims: int
     win: np.ndarray
     top2: np.ndarray
@@ -116,12 +122,21 @@ class SimulationResult:
             "race": self.card.name,
             "date": self.card.date,
             "going": self.card.going,
+            "graded": self.card.is_graded,
             "n_sims": self.n_sims,
+            "weights": "fitted" if self.evaluation.weights.fitted else "prior",
+            "uses_market": self.evaluation.log_market is not None,
             "runners": self.table().to_dict(orient="records"),
             "picks": [
-                {"mark": m, "number": self.card.runners[i].number, "horse": names[i]}
+                {
+                    "mark": m,
+                    "number": self.card.runners[i].number,
+                    "horse": names[i],
+                    "reasons": self.evaluation.reasons(i),
+                }
                 for m, i in zip(("◎", "○", "▲"), self.picks(), strict=True)
             ],
+            "missing_factors": self.evaluation.missing_factors(),
             **{
                 kind: [{"numbers": c, "probability": p} for c, p in self.top_combinations(kind)]
                 for kind in ("quinella", "trio", "trifecta")
@@ -134,6 +149,8 @@ def simulate_race(
     n_sims: int = 1_000_000,
     seed: int | None = None,
     *,
+    history: pd.DataFrame | None = None,
+    weights: ModelWeights | None = None,
     shocks: bool = True,
     params: ShockParams | None = None,
     chunk_size: int = 100_000,
@@ -143,7 +160,8 @@ def simulate_race(
         raise ValueError("simulation needs at least three runners")
     params = params or ShockParams()
     rng = np.random.default_rng(seed)
-    log_s = log_strengths(card)
+    evaluation = evaluate_card(card, history, weights)
+    log_s = evaluation.log_s
     pos_counts = np.zeros((3, n))
     quinella = np.zeros(n * n)
     trio = np.zeros(n**3)
@@ -153,7 +171,7 @@ def simulate_race(
         m = min(chunk_size, n_sims - start)
         keys = log_s + rng.gumbel(size=(m, n))
         if shocks:
-            keys += race_shocks(card, m, rng, params)
+            keys += race_shocks(card, m, rng, params, evaluation.n_runs)
         top = np.argpartition(-keys, 2, axis=1)[:, :3]
         order = np.argsort(-np.take_along_axis(keys, top, axis=1), axis=1)
         top = np.take_along_axis(top, order, axis=1)  # first, second, third
@@ -166,26 +184,37 @@ def simulate_race(
         trifecta += np.bincount((top[:, 0] * n + top[:, 1]) * n + top[:, 2], minlength=n**3)
 
     cum = np.cumsum(pos_counts, axis=0) / n_sims
-    return SimulationResult(card, n_sims, cum[0], cum[1], cum[2], quinella, trio, trifecta)
+    return SimulationResult(
+        card, evaluation, n_sims, cum[0], cum[1], cum[2], quinella, trio, trifecta
+    )
 
 
 def _format(result: SimulationResult) -> str:
     card = result.card
+    ev = result.evaluation
     lines = [
-        f"{card.name}  {card.date}  {card.course} {card.surface} {card.distance}m  "
-        f"going={card.going}  sims={result.n_sims:,}",
-        "",
+        f"{card.name} ({card.grade or 'grade unknown'})  {card.date}  {card.course} "
+        f"{card.surface} {card.distance}m  going={card.going}  sims={result.n_sims:,}",
+        f"weights={'fitted' if ev.weights.fitted else 'prior'}  "
+        f"market={'yes' if ev.log_market is not None else 'no'}",
     ]
+    if not card.is_graded:
+        lines.append("warning: this system targets graded races (G1/G2/G3)")
+    lines.append("")
     with pd.option_context("display.width", 120, "display.float_format", "{:.4f}".format):
         lines.append(result.table().to_string(index=False))
     lines.append("")
     for mark, i in zip(("◎", "○", "▲"), result.picks(), strict=True):
         r = card.runners[i]
-        lines.append(f"{mark} {r.number:>2} {r.horse}")
+        why = ", ".join(f"{name} {c:+.2f}" for name, c in ev.reasons(i))
+        lines.append(f"{mark} {r.number:>2} {r.horse}  [{why}]")
     for kind in ("quinella", "trio", "trifecta"):
         lines.append(f"\nTop {kind}:")
         for combo, p in result.top_combinations(kind):
             lines.append(f"  {'-'.join(map(str, combo)):<10} {p:.4f}")
+    missing = ev.missing_factors()
+    if missing:
+        lines.append(f"\nfactors unknown for every runner: {', '.join(missing)}")
     return "\n".join(lines)
 
 
@@ -195,11 +224,18 @@ def main(argv=None) -> None:
     parser.add_argument("--sims", type=int, default=1_000_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--no-shocks", action="store_true", help="pure Plackett-Luce draws")
+    parser.add_argument("--history", help="history parquet to compute statistics from")
+    parser.add_argument("--weights", help="fitted weights JSON from aikeiba-train")
     parser.add_argument("--json", help="also write the result as JSON to this path")
     args = parser.parse_args(argv)
 
     result = simulate_race(
-        load_race_card(args.card), args.sims, args.seed, shocks=not args.no_shocks
+        load_race_card(args.card),
+        args.sims,
+        args.seed,
+        history=pd.read_parquet(args.history) if args.history else None,
+        weights=ModelWeights.load(args.weights) if args.weights else None,
+        shocks=not args.no_shocks,
     )
     print(_format(result))
     if args.json:

@@ -27,8 +27,13 @@ roadmap is the order in which to build it. Two rules apply to every phase:
 
 - [x] `/predict-race` Claude Code skill: race card from public sources → 1,000,000-trial
       Monte Carlo (`aikeiba-simulate`) → ◎○▲ and quinella/trio/trifecta probabilities
-- [ ] Fit `StrengthWeights` and `ShockParams` on real data (needs Phase 1) instead of priors
+- [x] 29 factors per runner (horse, pedigree, connections, jockey incl. head-to-head, race
+      trends, workouts, stable comments, public consensus), from history or from the card
+- [x] `aikeiba-train`: Plackett-Luce fit of factor weights on past graded races, market
+      combination, walk-forward report (verified on synthetic history)
+- [ ] Fit the weights on real history (needs #2); then fit `ShockParams` the same way
 - [ ] Log each prediction and the result, so race-day picks are scored like the backtest
+- [ ] Speed up factor building for large histories (currently about 0.4 s per race)
 
 ## Phase 1: Real-data MVP
 
