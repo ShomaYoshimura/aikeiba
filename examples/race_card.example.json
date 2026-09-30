@@ -904,6 +904,94 @@
    }
   }
  },
+ "course_trends": {
+  "running_style": {
+   "逃げ": {
+    "starts": 120,
+    "top3": 38
+   },
+   "先行": {
+    "starts": 300,
+    "top3": 78
+   },
+   "差し": {
+    "starts": 350,
+    "top3": 60
+   },
+   "追込": {
+    "starts": 230,
+    "top3": 24
+   }
+  },
+  "age": {
+   "3": {
+    "starts": 180,
+    "top3": 40
+   },
+   "4": {
+    "starts": 300,
+    "top3": 66
+   },
+   "5": {
+    "starts": 280,
+    "top3": 55
+   },
+   "6": {
+    "starts": 150,
+    "top3": 24
+   },
+   "7": {
+    "starts": 90,
+    "top3": 10
+   }
+  },
+  "sex": {
+   "牡": {
+    "starts": 520,
+    "top3": 108
+   },
+   "牝": {
+    "starts": 420,
+    "top3": 80
+   },
+   "セ": {
+    "starts": 60,
+    "top3": 10
+   }
+  },
+  "last_finish": {
+   "1": {
+    "starts": 120,
+    "top3": 40
+   },
+   "2-3": {
+    "starts": 220,
+    "top3": 60
+   },
+   "4-5": {
+    "starts": 200,
+    "top3": 40
+   },
+   "6+": {
+    "starts": 460,
+    "top3": 60
+   }
+  },
+  "sire": {
+   "Sire X": {
+    "starts": 80,
+    "top3": 22
+   },
+   "Sire Y": {
+    "starts": 60,
+    "top3": 10
+   },
+   "Sire Z": {
+    "starts": 70,
+    "top3": 16
+   }
+  }
+ },
  "course_draw_stats": {
   "1": {
    "starts": 400,

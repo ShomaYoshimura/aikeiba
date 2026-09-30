@@ -1,6 +1,6 @@
 ---
 name: race-card-collector
-description: Collects the race-level part of a JRA graded race card (race conditions, the field with gates, odds, past-edition trends, course gate statistics) using only information published before a cutoff time. Writes a base card JSON. Use from the predict-race and verify-race skills.
+description: Collects the race-level part of a JRA graded race card (race conditions, the field with gates, odds, past-edition trends, and trends of reference races at the same course and distance) using only information published before a cutoff time. Writes a base card JSON. Use from the predict-race and verify-race skills.
 tools: WebSearch, WebFetch, Read, Write, Bash
 ---
 
@@ -30,7 +30,13 @@ output path.
 - `trends`: from "過去10年" style pages, `{"starts": n, "top3": k}` records by `draw`, `age`,
   `sex`, `running_style` (front/stalker/midfield/closer), `last_finish` (`1`, `2-3`, `4-5`,
   `6+`).
-- `course_draw_stats`: gate records at this course, surface and distance over all races.
+- `course_trends` (reference races): records over races at the **same course, surface and
+  distance** in recent years (about five; all classes, graded and open races included), by
+  `running_style` (逃げ/先行/差し/追込), `age`, `sex`, `last_finish` (`1`, `2-3`, `4-5`, `6+`)
+  and `sire` (for the sires of this field). Sources are course data pages such as
+  "コース別成績" / "コースデータ" / "種牡馬別成績（コース）". Say which period and classes the
+  numbers cover. Only include records you can read from a source.
+- `course_draw_stats`: gate (枠番) records over the same reference races.
 
 The format is in `examples/race_card.example.json`. Write the JSON to the output path, then
 check it:

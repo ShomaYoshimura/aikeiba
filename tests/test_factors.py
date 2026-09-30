@@ -24,7 +24,7 @@ def test_shrunk_rate_pulls_small_samples_to_prior():
     assert shrunk_rate(500, 1000, 0.2, 9) == pytest.approx(0.497, abs=1e-3)
 
 
-def small_history():
+def raw_history():
     rows = []
     # jockey J1 always beats J2; sire S1 strong on turf sprints
     for r in range(6):
@@ -50,7 +50,11 @@ def small_history():
                     "age": 4,
                 }
             )
-    return prepare_history(pd.DataFrame(rows))
+    return pd.DataFrame(rows)
+
+
+def small_history():
+    return prepare_history(raw_history())
 
 
 def test_history_prep_and_entity_stats():
@@ -136,3 +140,67 @@ def test_card_validation_errors():
         parse_race_card({**base, "runners": [{**runners[0], "stats": {"typo": 1}}, *runners[1:]]})
     with pytest.raises(ValueError, match="comment_score"):
         parse_race_card({**base, "runners": [{**runners[0], "comment_score": 5}, *runners[1:]]})
+
+
+def test_course_trend_uses_same_course_and_distance_only():
+    raw = raw_history()
+    # the same sires at another distance, where S2 always wins: must be ignored
+    others = []
+    for k in range(10):  # enough to flip the ranking if the distance filter were missing
+        other = raw[raw["race_id"] == "R0"].copy()
+        other["race_id"], other["distance"] = f"X{k}", 2400
+        other["horse_id"] = other["horse_id"] + f"x{k}"
+        other["finish_position"] = [4, 1, 2, 3]
+        others.append(other)
+    h = prepare_history(pd.concat([raw, *others]))
+    card = card_from_history(h[h["race_id"] == "R5"])
+    factors = compute_factors(card, h)
+    assert factors.loc[0, "course_trend"] > factors.loc[1, "course_trend"]  # S1 at Tokyo 1200
+
+
+def test_course_trends_from_card():
+    card = parse_race_card(
+        {
+            "race": {
+                "name": "t",
+                "date": "2026-10-04",
+                "course": "Nakayama",
+                "surface": "芝",
+                "distance": 1200,
+                "going": "良",
+                "grade": "G1",
+            },
+            "runners": [
+                {"number": 1, "horse": "A", "sire": "S1", "running_style": "逃げ"},
+                {"number": 2, "horse": "B", "sire": "S2", "running_style": "追込"},
+                {"number": 3, "horse": "C"},
+            ],
+            "course_trends": {
+                "running_style": {
+                    "逃げ": {"starts": 50, "top3": 20},
+                    "追込": {"starts": 50, "top3": 5},
+                },
+                "sire": {"S1": {"starts": 40, "top3": 12}, "S2": {"starts": 40, "top3": 6}},
+            },
+        }
+    )
+    assert set(card.course_trends["running_style"]) == {"front", "closer"}
+    raw = compute_factors(card)
+    assert raw.loc[0, "course_trend"] > 0 > raw.loc[1, "course_trend"]
+    assert np.isnan(raw.loc[2, "course_trend"])
+
+
+def test_course_trends_reject_unknown_attributes():
+    base = {
+        "race": {
+            "name": "t",
+            "date": "2026-01-01",
+            "course": "c",
+            "surface": "turf",
+            "distance": 1600,
+            "going": "良",
+        },
+        "runners": [{"number": i, "horse": f"H{i}"} for i in (1, 2, 3)],
+    }
+    with pytest.raises(ValueError, match="unknown attribute 'draw' in course_trends"):
+        parse_race_card({**base, "course_trends": {"draw": {"1": {"starts": 1, "top3": 0}}}})

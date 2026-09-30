@@ -25,7 +25,9 @@ Delegate collection to the collector agents so that each works in its own contex
 `data/race_cards/<date>-<slug>/` as the working directory (`data/` is gitignored), and set
 the **cutoff** to now (or, for a past race, see the verify-race skill).
 
-1. Run the `race-card-collector` agent: race, cutoff, output `<dir>/base.json`.
+1. Run the `race-card-collector` agent: race, cutoff, output `<dir>/base.json`. It also
+   collects the trends of past editions of the race (`trends`) and of reference races at the
+   same course, surface and distance (`course_trends`, `course_draw_stats`).
 2. Split the field into groups of about four horses and run one `runner-profile-collector`
    agent per group **in parallel**: race conditions, cutoff, the horses (number, name,
    jockey), output `<dir>/runners-<n>.json`.
@@ -56,13 +58,15 @@ and run again.
 ## 4. Report (in Japanese)
 
 1. The race, the data stage, the going, and the sources.
-2. Every runner's win, top-2 and top-3 probability.
-3. The marks of all three strategies in `strategies` (see `docs/methodology.md`):
+2. The reference-race tendencies at this course and distance that matter for this field
+   (running style, gate, sire), briefly, from `course_trends` / `course_draw_stats`.
+3. Every runner's win, top-2 and top-3 probability.
+4. The marks of all three strategies in `strategies` (see `docs/methodology.md`):
    的中重視 (hit), 両立 (balanced) and 回収重視 (value, with expected value and Kelly stake;
    it may be empty). Explain each ◎ with its `reasons` (the factors that moved its score
    most), translated into plain Japanese, plus any notable comment. Say where the strategies
    disagree and why (usually price).
-4. The five most likely 馬連, 三連複 and 三連単 combinations.
+5. The five most likely 馬連, 三連複 and 三連単 combinations.
 6. Caveats, briefly:
    - Whether the weights are `prior` (hand-set, not validated) or `fitted` (and on how many races).
    - Factors that were unknown for every runner (`missing_factors`).

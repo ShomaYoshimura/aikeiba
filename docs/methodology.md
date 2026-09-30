@@ -5,9 +5,13 @@ when a decision changes.
 
 ## How a prediction is made
 
-1. **Abstract.** Everything known before the race becomes 29 factors per runner
+1. **Abstract.** Everything known before the race becomes 30 factors per runner
    (`src/aikeiba/factors.py`). Statistics come from all races; rates with few observations are
    shrunk toward a prior so that a small sample cannot produce an extreme value.
+   Race context comes from three sets of past races: past editions of the same race
+   (`race_trend`, 10 years), reference races at the same course, surface and distance
+   (`course_trend` by running style, age, sex, last finish and sire, 5 years, all classes), and
+   the gate records over those reference races (`draw_bias`).
 2. **Compare within the race.** Each factor is z-scored within the field. A factor says how
    much better than *this field* a runner is; unknown values count as the field average.
 3. **Score.** A linear model turns the factor vector into a log-strength (`model.py`). Linear

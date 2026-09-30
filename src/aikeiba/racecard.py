@@ -53,7 +53,15 @@ RECORD_STATS = (
     "sire_condition",  # sire's progeny under today's surface / distance band / going
     "damsire_condition",
 )
-NUMBER_STATS = ("jockey_h2h",)  # share of races finished ahead of the other jockeys in the field
+NUMBER_STATS = ("jockey_h2h",)
+EDITION_TREND_ATTRS = ("draw", "age", "sex", "running_style", "last_finish")
+COURSE_TREND_ATTRS = (
+    "running_style",
+    "age",
+    "sex",
+    "last_finish",
+    "sire",
+)  # share of races finished ahead of the other jockeys in the field
 
 
 @dataclass(frozen=True)
@@ -134,6 +142,9 @@ class RaceCard:
     # Past editions of this race: attribute -> value -> Record. Attributes: draw, age,
     # sex, running_style, last_finish ("1", "2-3", "4-5", "6+").
     trends: dict = field(default_factory=dict)
+    # Reference races at this course, surface and distance (all classes, recent years):
+    # attribute -> value -> Record. Attributes: running_style, age, sex, last_finish, sire.
+    course_trends: dict = field(default_factory=dict)
     # Gate statistics for this course, surface and distance over all races: gate -> Record.
     course_draw_stats: dict = field(default_factory=dict)
     sources: tuple[str, ...] = ()
@@ -222,6 +233,18 @@ def _runner(r: dict) -> Runner:
     )
 
 
+def _trend_records(d: dict | None, where: str, allowed: tuple[str, ...]) -> dict:
+    out = {}
+    for attr, values in (d or {}).items():
+        if attr not in allowed:
+            raise ValueError(f"unknown attribute {attr!r} in {where}; use one of {allowed}")
+        records = {str(v): _record(rec, f"{where}.{attr}.{v}") for v, rec in values.items()}
+        if attr == "running_style":  # accept 逃げ/先行/差し/追込 as keys too
+            records = {STYLE_ALIASES.get(v, v): rec for v, rec in records.items()}
+        out[attr] = records
+    return out
+
+
 def parse_race_card(data: dict) -> RaceCard:
     race = data["race"]
     going = _going(race["going"], "race")
@@ -231,10 +254,8 @@ def parse_race_card(data: dict) -> RaceCard:
         raise ValueError("duplicate horse numbers")
     if len(runners) < 3:
         raise ValueError("a race card needs at least three runners")
-    trends = {
-        attr: {str(v): _record(rec, f"trends.{attr}.{v}") for v, rec in values.items()}
-        for attr, values in (data.get("trends") or {}).items()
-    }
+    trends = _trend_records(data.get("trends"), "trends", EDITION_TREND_ATTRS)
+    course_trends = _trend_records(data.get("course_trends"), "course_trends", COURSE_TREND_ATTRS)
     course_draw = {
         str(g): _record(rec, f"course_draw_stats.{g}")
         for g, rec in (data.get("course_draw_stats") or {}).items()
@@ -249,6 +270,7 @@ def parse_race_card(data: dict) -> RaceCard:
         grade=race.get("grade"),
         runners=runners,
         trends=trends,
+        course_trends=course_trends,
         course_draw_stats=course_draw,
         sources=tuple(data.get("sources") or ()),
     )

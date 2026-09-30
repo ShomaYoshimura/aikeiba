@@ -17,7 +17,13 @@ import numpy as np
 import pandas as pd
 
 from aikeiba.conditions import GOING_GROUP, condition_bin, race_name_key, similarity
-from aikeiba.racecard import WORKOUT_RATINGS, RaceCard, Runner
+from aikeiba.racecard import (
+    COURSE_TREND_ATTRS,
+    EDITION_TREND_ATTRS,
+    WORKOUT_RATINGS,
+    RaceCard,
+    Runner,
+)
 from aikeiba.schema import GRADED
 from aikeiba.stats import grouped_top3_rates, head_to_head, profile_matrix, shrunk_rate
 
@@ -61,6 +67,12 @@ FACTORS = (
     # Race
     Factor("draw_bias", "race", "top-3 rate of this gate at this course and distance", 0.05),
     Factor("race_trend", "race", "fit to past editions (gate, age, sex, style, last run)", 0.06),
+    Factor(
+        "course_trend",
+        "race",
+        "fit to races at this course, surface and distance (style, age, sex, last run, sire)",
+        0.05,
+    ),
     # Current information
     Factor("workout_score", "current", "latest workout vs. the field (time or A-E rating)", 0.06),
     Factor("comment_score", "current", "stable comment, scored -2..2", 0.05),
@@ -74,6 +86,10 @@ _CLASS_WEIGHT = {"G1": 1.0, "G2": 0.85, "G3": 0.7}
 _OTHER_CLASS_WEIGHT = 0.5
 # pseudo-counts for shrinkage
 _HORSE_M, _ENTITY_M, _PAIR_M, _PROFILE_M, _DRAW_M, _TREND_M = 3, 20, 10, 30, 50, 10
+# Attributes compared against past editions of the race and against reference races at the
+# same course and distance. The gate is left out of the latter: draw_bias already covers it.
+RACE_TREND_ATTRS = EDITION_TREND_ATTRS
+_EDITION_YEARS, _REFERENCE_YEARS = 10, 5
 
 
 def _past_runs_frame(runner: Runner) -> pd.DataFrame:
@@ -267,7 +283,10 @@ def history_stat_factors(card: RaceCard, before: pd.DataFrame, last_finishes: li
     same_track = course[course["distance"] == card.distance]
     draw_rates = rates(same_track, "draw", [x.draw for x in r], _DRAW_M)
     editions = before[before["name_key"] == race_name_key(card.name)]
-    editions = editions[editions["race_date"] >= today - pd.DateOffset(years=10)]
+    editions = editions[editions["race_date"] >= today - pd.DateOffset(years=_EDITION_YEARS)]
+    reference = same_track[same_track["race_date"] >= today - pd.DateOffset(years=_REFERENCE_YEARS)]
+    edition_table = _trend_table(editions, RACE_TREND_ATTRS)
+    reference_table = _trend_table(reference, COURSE_TREND_ATTRS)
 
     out = []
     for x, last in zip(r, last_finishes, strict=True):
@@ -284,7 +303,9 @@ def history_stat_factors(card: RaceCard, before: pd.DataFrame, last_finishes: li
                 d[name] = float(prof.at[key, cond])
         d["jockey_h2h"] = h2h.get(x.jockey, np.nan) if x.jockey else np.nan
         d["draw_bias"] = float(draw_rates.get(x.draw, np.nan)) if x.draw is not None else np.nan
-        d["race_trend"] = _history_trend(x, editions, last)
+        attrs = _runner_attributes(x, last)
+        d["race_trend"] = _trend_score(attrs, RACE_TREND_ATTRS, edition_table)
+        d["course_trend"] = _trend_score(attrs, COURSE_TREND_ATTRS, reference_table)
         out.append(d)
     return out
 
@@ -302,57 +323,56 @@ def _runner_attributes(x: Runner, last_finish) -> dict:
         "sex": x.sex,
         "running_style": x.running_style,
         "last_finish": last_finish_band(last_finish),
+        "sire": x.sire,
     }
 
 
-def _trend_score(attrs: dict, lookup) -> float:
-    """Mean over known attributes of (rate for this value - overall rate)."""
-    diffs = [lookup(a, v) for a, v in attrs.items() if v is not None]
-    diffs = [d for d in diffs if not np.isnan(d)]
+def _as_key(v) -> str | None:
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return None
+    return str(int(v)) if isinstance(v, float) else str(v)
+
+
+def _trend_table(rows: pd.DataFrame, attributes) -> dict:
+    """attribute -> value -> shrunk top-3 rate minus the overall rate of ``rows``."""
+    if rows.empty:
+        return {}
+    base = float(rows["top3"].mean())
+    columns = {a: rows[a] for a in attributes if a != "last_finish"}
+    if "last_finish" in attributes:
+        columns["last_finish"] = rows["prev_finish"].map(last_finish_band)
+    table = {}
+    for attr, col in columns.items():
+        g = pd.DataFrame({"key": col.map(_as_key), "top3": rows["top3"]}).dropna()
+        agg = g.groupby("key")["top3"].agg(["sum", "size"])
+        rates = shrunk_rate(agg["sum"], agg["size"], base, _TREND_M) - base
+        table[attr] = dict(zip(agg.index, map(float, rates), strict=True))
+    return table
+
+
+def _card_trend_table(trends: dict) -> dict:
+    """The same shape as ``_trend_table``, from ``{attribute: {value: Record}}`` on a card."""
+    table = {}
+    for attr, values in trends.items():
+        starts = sum(r.starts for r in values.values())
+        if not starts:
+            continue
+        base = sum(r.top3 for r in values.values()) / starts
+        table[attr] = {
+            v: float(shrunk_rate(r.top3, r.starts, base, _TREND_M)) - base
+            for v, r in values.items()
+        }
+    return table
+
+
+def _trend_score(attrs: dict, attributes, table: dict) -> float:
+    """Mean over the runner's known attributes of (rate for its value - overall rate)."""
+    diffs = [
+        table[a][attrs[a]]
+        for a in attributes
+        if attrs.get(a) is not None and a in table and attrs[a] in table[a]
+    ]
     return float(np.mean(diffs)) if diffs else np.nan
-
-
-def _history_trend(x: Runner, editions: pd.DataFrame, last) -> float:
-    if editions.empty:
-        return np.nan
-    base = float(editions["top3"].mean())
-    cols = {
-        "draw": editions["draw"],
-        "age": editions["age"],
-        "sex": editions["sex"],
-        "running_style": editions["running_style"],
-        "last_finish": editions["prev_finish"].map(last_finish_band),
-    }
-
-    def lookup(attr, value):
-        col = cols[attr].map(
-            lambda v: None if pd.isna(v) else str(int(v)) if isinstance(v, float) else str(v)
-        )
-        mask = (col == value).to_numpy()
-        if not mask.any():
-            return np.nan
-        return (
-            float(shrunk_rate(editions["top3"].to_numpy()[mask].sum(), mask.sum(), base, _TREND_M))
-            - base
-        )
-
-    return _trend_score(_runner_attributes(x, last), lookup)
-
-
-def _card_trend(card: RaceCard, x: Runner) -> float:
-    if not card.trends:
-        return np.nan
-    last = x.past_runs[0].finish if x.past_runs else None
-
-    def lookup(attr, value):
-        table = card.trends.get(attr)
-        if not table or value not in table:
-            return np.nan
-        base = sum(r.top3 for r in table.values()) / max(sum(r.starts for r in table.values()), 1)
-        rec = table[value]
-        return float(shrunk_rate(rec.top3, rec.starts, base, _TREND_M)) - base
-
-    return _trend_score(_runner_attributes(x, last), lookup)
 
 
 def workout_scores(card: RaceCard) -> list[float]:
@@ -394,6 +414,8 @@ def compute_factors(card: RaceCard, history: pd.DataFrame | None = None) -> pd.D
         history_stat_factors(card, before, last_finishes) if before is not None else None
     )
     workouts = workout_scores(card)
+    card_trends = _card_trend_table(card.trends)
+    card_course_trends = _card_trend_table(card.course_trends)
 
     rows = []
     for i, (x, runs) in enumerate(zip(card.runners, runs_list, strict=True)):
@@ -409,8 +431,11 @@ def compute_factors(card: RaceCard, history: pd.DataFrame | None = None) -> pd.D
             rec = card.course_draw_stats.get(str(int(x.draw)))
             if rec is not None:
                 row["draw_bias"] = float(shrunk_rate(rec.top3, rec.starts, _BASE_TOP3, _DRAW_M))
+        attrs = _runner_attributes(x, x.past_runs[0].finish if x.past_runs else None)
         if pd.isna(row.get("race_trend", np.nan)):
-            row["race_trend"] = _card_trend(card, x)
+            row["race_trend"] = _trend_score(attrs, RACE_TREND_ATTRS, card_trends)
+        if pd.isna(row.get("course_trend", np.nan)):
+            row["course_trend"] = _trend_score(attrs, COURSE_TREND_ATTRS, card_course_trends)
         row["workout_score"] = workouts[i]
         row["comment_score"] = x.comment_score
         row["consensus_share"] = x.consensus_share
