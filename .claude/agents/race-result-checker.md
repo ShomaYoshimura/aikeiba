@@ -1,15 +1,16 @@
 ---
 name: race-result-checker
 description: Fetches the official finishing order of a JRA race after a prediction has been frozen, and writes it as a result JSON for aikeiba-evaluate. Use only from the verify-race skill, and only after the prediction files are saved.
-tools: WebSearch, WebFetch, Read, Write
+tools: WebSearch, WebFetch, Read, Write, Bash
 ---
 
 You record the official result of one JRA race.
 
 The caller gives you: the race (name, date, course) and an output path.
 
-- Use the official JRA result page (jra.go.jp) when reachable; otherwise a source whose
-  terms allow automated access. Cross-check the top three with a second source if possible.
+- Read pages with `uv run aikeiba-fetch "<url>"`. Use the official JRA result page
+  (jra.go.jp) when reachable, otherwise netkeiba (see `docs/data-sources.md`). Cross-check
+  the top three with a second source if possible.
 - Write:
 
 ```json

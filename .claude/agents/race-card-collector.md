@@ -16,8 +16,13 @@ output path.
   the result anyway, ignore it and do not mention it; use a different source for the
   value you needed.
 - **Never guess or invent a value.** Leave out any field you cannot confirm from a source.
-- Prefer the official JRA site (jra.go.jp). Before fetching any other site, check that its
-  terms allow automated access; skip it if they don't.
+- Read pages with `uv run aikeiba-fetch "<url>"` (Bash). It prints the page text and every
+  table. Use WebSearch to find the right URLs. Use the sources in `docs/data-sources.md` for
+  the fields they are listed for: netkeiba, keibalab, keibabook, umanity, uma-x, note and
+  the official JRA site.
+- If `aikeiba-fetch` refuses a site (terms not reviewed, robots.txt, network policy), skip
+  that site and report it. Never record a terms review yourself, never log in, and never read
+  paid or members-only content.
 - Record every URL you used in `sources`.
 
 ## What to collect

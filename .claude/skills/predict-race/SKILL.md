@@ -39,8 +39,11 @@ uv run aikeiba-card merge <dir>/base.json <dir>/runners-*.json -o <dir>/card.jso
 ```
 
 If an agent reports missing fields, you may fill them yourself from a cited source, under
-the same rules: nothing published after the cutoff, **never guess or invent a value**, check a
-site's terms before fetching it, and add every URL to `sources`. A missing value counts as the
+the same rules: nothing published after the cutoff, **never guess or invent a value**, read
+pages with `uv run aikeiba-fetch` from the sources in `docs/data-sources.md`, and add every
+URL to `sources`. If the agents report that a site was refused because its terms are not
+recorded as reviewed, tell the user (`aikeiba-fetch --review-terms <site>`, see
+`docs/data-sources.md`); never record it yourself. A missing value counts as the
 field average. The field list and the comment-scoring rubric are in the agent definitions
 (`.claude/agents/`); the card format is in `examples/race_card.example.json`.
 

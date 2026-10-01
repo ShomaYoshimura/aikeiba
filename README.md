@@ -41,6 +41,11 @@ order (about 2 seconds) with shared pace and track-bias shocks, and picks ◎○
 behind each pick, plus the most likely quinella, trio and trifecta. See
 `examples/race_card.example.json` for the card format.
 
+Pages are read with `aikeiba-fetch` from the sources in [docs/data-sources.md](docs/data-sources.md)
+(netkeiba, keibalab, keibabook, umanity, uma-x, note and JRA). It obeys robots.txt, rate-limits
+and caches requests, never logs in, and only fetches from sites whose terms you have recorded as
+reviewed: `uv run aikeiba-fetch --review-terms netkeiba --note "..."`.
+
 ### Test on a past race
 
 `/verify-race <race name> <date>` builds the prediction from information published before the
@@ -103,6 +108,7 @@ npm run dev
 | `cardtools.py` | Merges and validates race cards from the collector agents (`aikeiba-card`) |
 | `evaluate.py` | Scores a frozen prediction against the result and keeps a log (`aikeiba-evaluate`) |
 | `strategies.py` | Three marking strategies: hit (的中重視), balanced (両立), value (回収重視) |
+| `fetch.py` | Polite page fetcher with robots.txt, rate limit, cache and text/table extraction (`aikeiba-fetch`) |
 
 ## Design principles
 

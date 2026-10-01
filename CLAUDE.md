@@ -20,6 +20,8 @@ uv run aikeiba-train --history data/history.parquet --out data/models/weights.js
 uv run aikeiba-card merge base.json runners-*.json -o card.json      # assemble a race card from agent output
 uv run aikeiba-evaluate prediction.json result.json                  # score a frozen prediction, append to data/predictions/log.csv
 uv run aikeiba-evaluate --summary                                    # hit rates per strategy vs. favourite, calibration
+uv run aikeiba-fetch "<url>"                                         # polite fetch: page text + tables (agents use this)
+uv run aikeiba-fetch --sites                                         # sources and whether their terms are reviewed
 
 cd docs/architecture && npm install && npm run build   # blueprint viewer (Vite)
 ```
@@ -40,6 +42,8 @@ Invariants that the code and tests rely on:
 - **The market is the benchmark.** Report metrics next to `market`, never against a random baseline. Train on all races; graded races (about 60 a year) are too few to train on alone.
 
 **Race-day path (graded races only)**: the `/predict-race` skill (`.claude/skills/predict-race/SKILL.md`) has the `race-card-collector` agent and parallel `runner-profile-collector` agents (`.claude/agents/`) collect a race card from public sources up to a cutoff into `data/race_cards/<date>-<slug>/`, merges it with `cardtools.merge` (`racecard.py` validates) → `strength.evaluate_card` → `simulate.simulate_race`. The `/verify-race` skill does the same for a past race with a cutoff the evening before, freezes the prediction (sha256), and only then runs the `race-result-checker` agent and `evaluate.py`. Keep that separation: collectors must never see results, and the result is fetched only after the prediction is frozen.
+
+Collectors read pages through `fetch.py` (`aikeiba-fetch`): only sites in `fetch.SITES` (netkeiba, keibalab, keibabook, umanity, uma-x, note, JRA) whose terms the user has recorded as reviewed (`data/scraping/terms_reviewed.json`, written only by the user via `--review-terms`), robots.txt obeyed, at least 5 s between requests per host, pages cached in `data/cache/http`, no logins or paid content. There are no site-specific parsers; the agents read the extracted text and tables. `docs/data-sources.md` maps each site to the card fields it feeds.
 
 `docs/methodology.md` records the prediction and scoring decisions; update it when they change. Marks come from three strategies in `strategies.py` (hit / balanced / value); the primary scores are hit rate (against the favourite) and calibration (ECE, `metrics.expected_calibration_error`), reported both by `aikeiba-evaluate` (race-day log plus a per-runner log for calibration) and by the `aikeiba-train` walk-forward.
 

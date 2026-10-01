@@ -36,6 +36,9 @@ roadmap is the order in which to build it. Two rules apply to every phase:
 - [ ] Fit the weights on real history (needs #2); then fit `ShockParams` the same way
 - [x] Log each prediction and the result (`/verify-race`, `aikeiba-evaluate`), with collector
       and result agents kept apart so results cannot leak into predictions
+- [x] `aikeiba-fetch`: polite fetching from netkeiba, keibalab, keibabook, umanity, uma-x, note
+      and JRA (robots.txt, rate limit, cache, terms-review gate); sources in `docs/data-sources.md`
+- [ ] Review each site's terms and allow its domains in the environment's network settings
 - [ ] Run `/verify-race` on the recent graded races once network access to the sources is set
 - [ ] Speed up factor building for large histories (currently about 0.4 s per race)
 
