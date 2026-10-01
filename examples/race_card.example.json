@@ -6,7 +6,12 @@
   "course": "Nakayama",
   "surface": "芝",
   "distance": 1200,
-  "going": "稍重"
+  "going": "稍重",
+  "post_time": "15:40",
+  "cushion": 9.3,
+  "moisture": 11.5,
+  "weather": "曇",
+  "wind_speed": 3.0
  },
  "runners": [
   {
@@ -39,7 +44,14 @@
      "going": "重",
      "grade": "OP",
      "jockey": "Jockey A",
-     "last3f": 34.7
+     "last3f": 34.7,
+     "margin": 0.5,
+     "early_position": 3,
+     "popularity": 6,
+     "cushion": 9.8,
+     "trouble": false,
+     "speed_figure": 88.2,
+     "weight_carried": 58
     },
     {
      "date": "2026-07-11",
@@ -52,7 +64,14 @@
      "going": "稍重",
      "grade": "OP",
      "jockey": "Jockey A",
-     "last3f": 34.2
+     "last3f": 34.2,
+     "margin": 0.4,
+     "early_position": 1,
+     "popularity": 5,
+     "cushion": 8.1,
+     "trouble": false,
+     "speed_figure": 90.2,
+     "weight_carried": 58
     },
     {
      "date": "2026-06-12",
@@ -65,7 +84,14 @@
      "going": "重",
      "grade": "OP",
      "jockey": "Jockey A",
-     "last3f": 35.1
+     "last3f": 35.1,
+     "margin": 0.7,
+     "early_position": 2,
+     "popularity": 5,
+     "cushion": 8.3,
+     "trouble": false,
+     "speed_figure": 89.4,
+     "weight_carried": 58
     },
     {
      "date": "2026-05-13",
@@ -78,7 +104,14 @@
      "going": "良",
      "grade": "OP",
      "jockey": "Jockey A",
-     "last3f": 35.0
+     "last3f": 35.0,
+     "margin": 0.0,
+     "early_position": 2,
+     "popularity": 1,
+     "cushion": 8.5,
+     "trouble": false,
+     "speed_figure": 96.3,
+     "weight_carried": 58
     }
    ],
    "workouts": [
@@ -110,8 +143,20 @@
      "starts": 150,
      "top3": 40
     },
-    "jockey_h2h": 0.6
-   }
+    "jockey_h2h": 0.6,
+    "siblings": {
+     "starts": 20,
+     "top3": 8
+    }
+   },
+   "trainer_center": "美浦",
+   "dam": "Dam A",
+   "previous_odds": 3.5,
+   "paddock_comment": "Relaxed, good coat",
+   "paddock_score": 1,
+   "inbreeding_crosses": [
+    "4x3"
+   ]
   },
   {
    "number": 2,
@@ -143,7 +188,14 @@
      "going": "重",
      "grade": "OP",
      "jockey": "Jockey B",
-     "last3f": 34.9
+     "last3f": 34.9,
+     "margin": 0.3,
+     "early_position": 10,
+     "popularity": 4,
+     "cushion": 9.1,
+     "trouble": false,
+     "speed_figure": 93.8,
+     "weight_carried": 56
     },
     {
      "date": "2026-07-11",
@@ -156,7 +208,14 @@
      "going": "重",
      "grade": "G2",
      "jockey": "Jockey B",
-     "last3f": 35.1
+     "last3f": 35.1,
+     "margin": 0.4,
+     "early_position": 8,
+     "popularity": 2,
+     "cushion": 10.2,
+     "trouble": false,
+     "speed_figure": 90.8,
+     "weight_carried": 56
     },
     {
      "date": "2026-06-12",
@@ -169,7 +228,14 @@
      "going": "重",
      "grade": "G2",
      "jockey": "Jockey B",
-     "last3f": 34.2
+     "last3f": 34.2,
+     "margin": 0.0,
+     "early_position": 10,
+     "popularity": 3,
+     "cushion": 9.6,
+     "trouble": false,
+     "speed_figure": 99.8,
+     "weight_carried": 56
     }
    ],
    "workouts": [
@@ -201,8 +267,17 @@
      "starts": 150,
      "top3": 30
     },
-    "jockey_h2h": 0.5
-   }
+    "jockey_h2h": 0.5,
+    "siblings": {
+     "starts": 21,
+     "top3": 6
+    }
+   },
+   "trainer_center": "栗東",
+   "dam": "Dam B",
+   "previous_odds": 6.6,
+   "paddock_comment": "Sweating a little",
+   "paddock_score": -1
   },
   {
    "number": 3,
@@ -234,7 +309,14 @@
      "going": "重",
      "grade": "OP",
      "jockey": "Jockey Z",
-     "last3f": 34.1
+     "last3f": 34.1,
+     "margin": 0.8,
+     "early_position": 4,
+     "popularity": 4,
+     "cushion": 8.1,
+     "trouble": false,
+     "speed_figure": 87.6,
+     "weight_carried": 58
     },
     {
      "date": "2026-07-11",
@@ -247,7 +329,14 @@
      "going": "良",
      "grade": "OP",
      "jockey": "Jockey C",
-     "last3f": 35.1
+     "last3f": 35.1,
+     "margin": 0.5,
+     "early_position": 4,
+     "popularity": 3,
+     "cushion": 10.0,
+     "trouble": false,
+     "speed_figure": 88.6,
+     "weight_carried": 58
     },
     {
      "date": "2026-06-12",
@@ -260,7 +349,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey C",
-     "last3f": 34.0
+     "last3f": 34.0,
+     "margin": 0.8,
+     "early_position": 3,
+     "popularity": 5,
+     "cushion": 8.9,
+     "trouble": false,
+     "speed_figure": 83.2,
+     "weight_carried": 58
     },
     {
      "date": "2026-05-13",
@@ -273,7 +369,14 @@
      "going": "稍重",
      "grade": "G2",
      "jockey": "Jockey C",
-     "last3f": 34.4
+     "last3f": 34.4,
+     "margin": 0.6,
+     "early_position": 4,
+     "popularity": 7,
+     "cushion": 8.4,
+     "trouble": false,
+     "speed_figure": 87.6,
+     "weight_carried": 58
     },
     {
      "date": "2026-04-14",
@@ -286,7 +389,14 @@
      "going": "重",
      "grade": "G3",
      "jockey": "Jockey C",
-     "last3f": 35.1
+     "last3f": 35.1,
+     "margin": 0.6,
+     "early_position": 4,
+     "popularity": 6,
+     "cushion": 9.0,
+     "trouble": false,
+     "speed_figure": 90.5,
+     "weight_carried": 58
     }
    ],
    "workouts": [
@@ -318,8 +428,17 @@
      "starts": 150,
      "top3": 35
     },
-    "jockey_h2h": 0.45
-   }
+    "jockey_h2h": 0.45,
+    "siblings": {
+     "starts": 22,
+     "top3": 4
+    }
+   },
+   "trainer_center": "美浦",
+   "dam": "Dam C",
+   "previous_odds": 7.6,
+   "paddock_comment": "Normal",
+   "paddock_score": 0
   },
   {
    "number": 4,
@@ -351,7 +470,14 @@
      "going": "良",
      "grade": "G2",
      "jockey": "Jockey D",
-     "last3f": 34.3
+     "last3f": 34.3,
+     "margin": 0.9,
+     "early_position": 14,
+     "popularity": 3,
+     "cushion": 9.8,
+     "trouble": false,
+     "speed_figure": 84.7,
+     "weight_carried": 58
     },
     {
      "date": "2026-07-11",
@@ -364,7 +490,14 @@
      "going": "良",
      "grade": "G3",
      "jockey": "Jockey D",
-     "last3f": 34.2
+     "last3f": 34.2,
+     "margin": 0.3,
+     "early_position": 13,
+     "popularity": 6,
+     "cushion": 10.4,
+     "trouble": false,
+     "speed_figure": 90.1,
+     "weight_carried": 58
     },
     {
      "date": "2026-06-12",
@@ -377,7 +510,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey D",
-     "last3f": 34.3
+     "last3f": 34.3,
+     "margin": 0.7,
+     "early_position": 14,
+     "popularity": 2,
+     "cushion": 9.5,
+     "trouble": false,
+     "speed_figure": 84.2,
+     "weight_carried": 58
     }
    ],
    "workouts": [
@@ -409,8 +549,20 @@
      "starts": 150,
      "top3": 40
     },
-    "jockey_h2h": 0.52
-   }
+    "jockey_h2h": 0.52,
+    "siblings": {
+     "starts": 23,
+     "top3": 3
+    }
+   },
+   "trainer_center": "栗東",
+   "dam": "Dam D",
+   "previous_odds": 11.6,
+   "paddock_comment": "Looks heavy",
+   "paddock_score": -1,
+   "inbreeding_crosses": [
+    "4x3"
+   ]
   },
   {
    "number": 5,
@@ -442,7 +594,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey E",
-     "last3f": 34.8
+     "last3f": 34.8,
+     "margin": 0.4,
+     "early_position": 3,
+     "popularity": 1,
+     "cushion": 8.9,
+     "trouble": false,
+     "speed_figure": 93.5,
+     "weight_carried": 55
     },
     {
      "date": "2026-07-11",
@@ -455,7 +614,14 @@
      "going": "重",
      "grade": "G3",
      "jockey": "Jockey E",
-     "last3f": 34.6
+     "last3f": 34.6,
+     "margin": 0.6,
+     "early_position": 5,
+     "popularity": 6,
+     "cushion": 8.2,
+     "trouble": false,
+     "speed_figure": 83.8,
+     "weight_carried": 55
     },
     {
      "date": "2026-06-12",
@@ -468,7 +634,14 @@
      "going": "重",
      "grade": "OP",
      "jockey": "Jockey E",
-     "last3f": 34.3
+     "last3f": 34.3,
+     "margin": 0.6,
+     "early_position": 5,
+     "popularity": 2,
+     "cushion": 9.8,
+     "trouble": false,
+     "speed_figure": 87.9,
+     "weight_carried": 55
     },
     {
      "date": "2026-05-13",
@@ -481,7 +654,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey E",
-     "last3f": 34.3
+     "last3f": 34.3,
+     "margin": 0.5,
+     "early_position": 3,
+     "popularity": 4,
+     "cushion": 9.3,
+     "trouble": false,
+     "speed_figure": 89.4,
+     "weight_carried": 55
     },
     {
      "date": "2026-04-14",
@@ -494,7 +674,14 @@
      "going": "良",
      "grade": "OP",
      "jockey": "Jockey E",
-     "last3f": 33.9
+     "last3f": 33.9,
+     "margin": 0.4,
+     "early_position": 4,
+     "popularity": 2,
+     "cushion": 9.6,
+     "trouble": false,
+     "speed_figure": 96.9,
+     "weight_carried": 55
     },
     {
      "date": "2026-03-15",
@@ -507,7 +694,14 @@
      "going": "稍重",
      "grade": "OP",
      "jockey": "Jockey E",
-     "last3f": 34.5
+     "last3f": 34.5,
+     "margin": 0.7,
+     "early_position": 4,
+     "popularity": 4,
+     "cushion": 10.1,
+     "trouble": false,
+     "speed_figure": 86.4,
+     "weight_carried": 55
     }
    ],
    "workouts": [
@@ -539,8 +733,17 @@
      "starts": 150,
      "top3": 30
     },
-    "jockey_h2h": 0.63
-   }
+    "jockey_h2h": 0.63,
+    "siblings": {
+     "starts": 24,
+     "top3": 7
+    }
+   },
+   "trainer_center": "美浦",
+   "dam": "Dam E",
+   "previous_odds": 4.2,
+   "paddock_comment": "Very sharp",
+   "paddock_score": 2
   },
   {
    "number": 6,
@@ -572,7 +775,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey F",
-     "last3f": 35.0
+     "last3f": 35.0,
+     "margin": 1.0,
+     "early_position": 2,
+     "popularity": 5,
+     "cushion": 8.4,
+     "trouble": false,
+     "speed_figure": 73.4,
+     "weight_carried": 58
     },
     {
      "date": "2026-07-11",
@@ -585,7 +795,14 @@
      "going": "稍重",
      "grade": "OP",
      "jockey": "Jockey F",
-     "last3f": 34.1
+     "last3f": 34.1,
+     "margin": 0.8,
+     "early_position": 1,
+     "popularity": 7,
+     "cushion": 10.3,
+     "trouble": false,
+     "speed_figure": 77.0,
+     "weight_carried": 58
     },
     {
      "date": "2026-06-12",
@@ -598,7 +815,14 @@
      "going": "良",
      "grade": "OP",
      "jockey": "Jockey F",
-     "last3f": 34.5
+     "last3f": 34.5,
+     "margin": 1.1,
+     "early_position": 2,
+     "popularity": 11,
+     "cushion": 9.8,
+     "trouble": false,
+     "speed_figure": 71.7,
+     "weight_carried": 58
     },
     {
      "date": "2026-05-13",
@@ -611,7 +835,14 @@
      "going": "稍重",
      "grade": "G3",
      "jockey": "Jockey F",
-     "last3f": 34.8
+     "last3f": 34.8,
+     "margin": 1.3,
+     "early_position": 1,
+     "popularity": 9,
+     "cushion": 8.9,
+     "trouble": false,
+     "speed_figure": 66.8,
+     "weight_carried": 58
     },
     {
      "date": "2026-04-14",
@@ -624,7 +855,14 @@
      "going": "良",
      "grade": "G3",
      "jockey": "Jockey F",
-     "last3f": 34.9
+     "last3f": 34.9,
+     "margin": 1.0,
+     "early_position": 2,
+     "popularity": 11,
+     "cushion": 8.8,
+     "trouble": true,
+     "speed_figure": 74.6,
+     "weight_carried": 58
     }
    ],
    "workouts": [
@@ -656,8 +894,17 @@
      "starts": 150,
      "top3": 35
     },
-    "jockey_h2h": 0.38
-   }
+    "jockey_h2h": 0.38,
+    "siblings": {
+     "starts": 25,
+     "top3": 1
+    }
+   },
+   "trainer_center": "栗東",
+   "dam": "Dam F",
+   "previous_odds": 30.7,
+   "paddock_comment": "Tense",
+   "paddock_score": -1
   },
   {
    "number": 7,
@@ -689,7 +936,14 @@
      "going": "良",
      "grade": "G3",
      "jockey": "Jockey G",
-     "last3f": 35.0
+     "last3f": 35.0,
+     "margin": 0.7,
+     "early_position": 9,
+     "popularity": 1,
+     "cushion": 10.0,
+     "trouble": false,
+     "speed_figure": 89.2,
+     "weight_carried": 58
     },
     {
      "date": "2026-07-11",
@@ -702,7 +956,14 @@
      "going": "稍重",
      "grade": "OP",
      "jockey": "Jockey G",
-     "last3f": 33.9
+     "last3f": 33.9,
+     "margin": 0.9,
+     "early_position": 9,
+     "popularity": 6,
+     "cushion": 9.4,
+     "trouble": false,
+     "speed_figure": 81.0,
+     "weight_carried": 58
     },
     {
      "date": "2026-06-12",
@@ -715,7 +976,14 @@
      "going": "重",
      "grade": "G3",
      "jockey": "Jockey G",
-     "last3f": 34.6
+     "last3f": 34.6,
+     "margin": 0.8,
+     "early_position": 10,
+     "popularity": 9,
+     "cushion": 8.7,
+     "trouble": false,
+     "speed_figure": 79.9,
+     "weight_carried": 58
     },
     {
      "date": "2026-05-13",
@@ -728,7 +996,14 @@
      "going": "重",
      "grade": "G3",
      "jockey": "Jockey G",
-     "last3f": 34.4
+     "last3f": 34.4,
+     "margin": 0.7,
+     "early_position": 8,
+     "popularity": 5,
+     "cushion": 9.4,
+     "trouble": false,
+     "speed_figure": 86.0,
+     "weight_carried": 58
     },
     {
      "date": "2026-04-14",
@@ -741,7 +1016,14 @@
      "going": "良",
      "grade": "G2",
      "jockey": "Jockey G",
-     "last3f": 33.8
+     "last3f": 33.8,
+     "margin": 0.7,
+     "early_position": 10,
+     "popularity": 8,
+     "cushion": 9.7,
+     "trouble": false,
+     "speed_figure": 80.6,
+     "weight_carried": 58
     }
    ],
    "workouts": [
@@ -773,8 +1055,20 @@
      "starts": 150,
      "top3": 40
     },
-    "jockey_h2h": 0.44
-   }
+    "jockey_h2h": 0.44,
+    "siblings": {
+     "starts": 26,
+     "top3": 3
+    }
+   },
+   "trainer_center": "美浦",
+   "dam": "Dam G",
+   "previous_odds": 20.7,
+   "paddock_comment": "Normal",
+   "paddock_score": 0,
+   "inbreeding_crosses": [
+    "4x3"
+   ]
   },
   {
    "number": 8,
@@ -824,8 +1118,17 @@
      "starts": 150,
      "top3": 30
     },
-    "jockey_h2h": 0.47
-   }
+    "jockey_h2h": 0.47,
+    "siblings": {
+     "starts": 27,
+     "top3": 2
+    }
+   },
+   "trainer_center": "栗東",
+   "dam": "Dam H",
+   "previous_odds": 38.2,
+   "paddock_comment": "Lively",
+   "paddock_score": 1
   }
  ],
  "trends": {
@@ -1026,6 +1329,146 @@
    "top3": 68
   }
  },
+ "same_day_races": [
+  {
+   "surface": "芝",
+   "distance": 1200,
+   "runners": [
+    {
+     "draw": 1,
+     "early_position": 4,
+     "finish": 7
+    },
+    {
+     "draw": 2,
+     "early_position": 6,
+     "finish": 3
+    },
+    {
+     "draw": 3,
+     "early_position": 8,
+     "finish": 2
+    },
+    {
+     "draw": 4,
+     "early_position": 5,
+     "finish": 4
+    },
+    {
+     "draw": 5,
+     "early_position": 12,
+     "finish": 8
+    },
+    {
+     "draw": 6,
+     "early_position": 2,
+     "finish": 6
+    },
+    {
+     "draw": 7,
+     "early_position": 12,
+     "finish": 1
+    },
+    {
+     "draw": 8,
+     "early_position": 11,
+     "finish": 5
+    }
+   ]
+  },
+  {
+   "surface": "芝",
+   "distance": 1600,
+   "runners": [
+    {
+     "draw": 1,
+     "early_position": 4,
+     "finish": 7
+    },
+    {
+     "draw": 2,
+     "early_position": 3,
+     "finish": 2
+    },
+    {
+     "draw": 3,
+     "early_position": 10,
+     "finish": 5
+    },
+    {
+     "draw": 4,
+     "early_position": 8,
+     "finish": 6
+    },
+    {
+     "draw": 5,
+     "early_position": 10,
+     "finish": 4
+    },
+    {
+     "draw": 6,
+     "early_position": 11,
+     "finish": 8
+    },
+    {
+     "draw": 7,
+     "early_position": 3,
+     "finish": 3
+    },
+    {
+     "draw": 8,
+     "early_position": 4,
+     "finish": 1
+    }
+   ]
+  },
+  {
+   "surface": "芝",
+   "distance": 1800,
+   "runners": [
+    {
+     "draw": 1,
+     "early_position": 3,
+     "finish": 3
+    },
+    {
+     "draw": 2,
+     "early_position": 2,
+     "finish": 6
+    },
+    {
+     "draw": 3,
+     "early_position": 6,
+     "finish": 7
+    },
+    {
+     "draw": 4,
+     "early_position": 3,
+     "finish": 1
+    },
+    {
+     "draw": 5,
+     "early_position": 8,
+     "finish": 4
+    },
+    {
+     "draw": 6,
+     "early_position": 4,
+     "finish": 5
+    },
+    {
+     "draw": 7,
+     "early_position": 9,
+     "finish": 8
+    },
+    {
+     "draw": 8,
+     "early_position": 1,
+     "finish": 2
+    }
+   ]
+  }
+ ],
  "sources": [
   "Fictional example for tests and documentation"
  ]

@@ -136,6 +136,12 @@ def generate_history(
     owner = rng.integers(0, n_owners, n_horses)
     breeder = rng.integers(0, n_breeders, n_horses)
     region = rng.choice(["Hidaka", "Iburi", "Imported"], n_horses, p=[0.6, 0.3, 0.1])
+    n_dams = n_horses // 2
+    dam = rng.integers(0, n_dams, n_horses)
+    dam_quality = rng.normal(0, 0.3, n_dams)
+    ability += dam_quality[dam]  # siblings share part of their ability
+    trainer_center = rng.choice(["美浦", "栗東"], n_trainers)
+    early_pref = rng.normal(0, 1, n_horses)  # higher = races further forward
     main_jockey = rng.integers(0, n_jockeys, n_horses)
     style = rng.integers(0, 4, n_horses)
     birth_year = start_year - rng.integers(2, 6, n_horses)
@@ -187,13 +193,26 @@ def generate_history(
                     + draw_effect[course] * (4.5 - gates)
                     + (off_going_pref[horses] if going in ("soft", "heavy") else 0.0)
                 )
-                perf = expected + rng.gumbel(0, 1.0, size)
+                trouble = rng.random(size) < 0.08
+                perf = expected - 0.8 * trouble + rng.gumbel(0, 1.0, size)
                 finish = np.empty(size, dtype=int)
                 finish[np.argsort(-perf)] = np.arange(1, size + 1)
                 est = expected + rng.normal(0, 0.45, size)
                 p = np.exp(est - est.max())
                 p /= p.sum()
                 odds = np.maximum(1.0, np.round((1 - TAKEOUT) / p, 1))
+                prev_odds = np.maximum(1.0, np.round(odds * np.exp(rng.normal(0, 0.15, size)), 1))
+                early_rank = np.empty(size, dtype=int)
+                early_rank[np.argsort(-(early_pref[horses] + rng.normal(0, 0.5, size)))] = (
+                    np.arange(1, size + 1)
+                )
+                standard = distance / 16.5 + (1.5 if surface == "dirt" else 0.0)
+                day_variant = {"good": 0.0, "yielding": 0.8, "soft": 1.8, "heavy": 3.0}[going]
+                times = standard + day_variant - 0.35 * perf * distance / 1600
+                cushion = round(
+                    float(np.clip(9.5 - 1.2 * _GOINGS.index(going) + rng.normal(0, 0.5), 6, 12)),
+                    1,
+                )
                 race_id = f"{day:%Y%m%d}{r + 1:02d}"
                 for k, h in enumerate(horses):
                     rows.append(
@@ -223,6 +242,14 @@ def generate_history(
                             sex[h],
                             _STYLES[style[h]],
                             round(35.5 - 0.4 * perf[k] + rng.normal(0, 0.3), 1),
+                            round(float(times[k]), 1),
+                            int(early_rank[k]),
+                            cushion,
+                            int(trouble[k]),
+                            f"Dam {dam[h]:05d}",
+                            trainer_center[trainer[h]],
+                            prev_odds[k],
+                            day + pd.Timedelta(hours=10, minutes=30 * r),
                         )
                     )
     columns = [
@@ -251,7 +278,13 @@ def generate_history(
         "sex",
         "running_style",
         "last3f",
+        "time",
+        "early_position",
+        "cushion",
+        "trouble",
+        "dam",
+        "trainer_center",
+        "prev_odds",
+        POST_TIME,
     ]
-    df = pd.DataFrame(rows, columns=columns)
-    df[POST_TIME] = df[RACE_DATE] + pd.Timedelta(hours=15)
-    return df
+    return pd.DataFrame(rows, columns=columns)

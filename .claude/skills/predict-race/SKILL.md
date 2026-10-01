@@ -27,7 +27,8 @@ the **cutoff** to now (or, for a past race, see the verify-race skill).
 
 1. Run the `race-card-collector` agent: race, cutoff, output `<dir>/base.json`. It also
    collects the trends of past editions of the race (`trends`) and of reference races at the
-   same course, surface and distance (`course_trends`, `course_draw_stats`).
+   same course, surface and distance (`course_trends`, `course_draw_stats`), and on race day
+   the earlier races of the day (`same_day_races`) for today's track bias.
 2. Split the field into groups of about four horses and run one `runner-profile-collector`
    agent per group **in parallel**: race conditions, cutoff, the horses (number, name,
    jockey), output `<dir>/runners-<n>.json`.

@@ -16,7 +16,8 @@ prediction is saved.
 - Identify the race (name, grade, date, course, post time) without opening its result.
   Work in `data/race_cards/<date>-<slug>/`.
 - Cutoff: the evening before race day (23:59 JST), unless the user sets another. Odds and
-  horse weights from race day are then not used; say so in the report.
+  horse weights from race day are then not used, and neither are today's track bias
+  (`same_day_races`) and paddock reports; say so in the report.
 - If you have already seen this race's result (in this conversation, a search snippet, or
   prior knowledge), say so to the user up front, and rely even more strictly on the agents
   and on cited sources for every value.

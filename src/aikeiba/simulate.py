@@ -39,6 +39,19 @@ class ShockParams:
         default_factory=lambda: {"good": 0.10, "yielding": 0.15, "soft": 0.20, "heavy": 0.25}
     )
     unknown_form_sd: float = 0.5  # extra noise for a runner with no known runs
+    front_runner_threshold: float = 0.7  # early-speed score from which a runner counts as front
+    rain_bias_multiplier: float = 1.3  # wider track-bias spread in rain or snow
+    wind_bias_per_ms: float = 0.03  # +3% track-bias spread per m/s of wind
+
+
+def style_scores(card: RaceCard, early_speed: np.ndarray | None = None) -> np.ndarray:
+    """Running-style score per runner (1 = leads, -1 = comes from last): the measured early
+    speed from past runs where known, else the running-style label, else 0."""
+    labels = np.array([STYLE_SCORE.get(r.running_style, 0.0) for r in card.runners])
+    if early_speed is None:
+        return labels
+    early = np.asarray(early_speed, dtype=float)
+    return np.where(np.isnan(early), labels, early)
 
 
 def race_shocks(
@@ -47,17 +60,23 @@ def race_shocks(
     rng: np.random.Generator,
     params: ShockParams,
     n_runs: np.ndarray,
+    early_speed: np.ndarray | None = None,
 ) -> np.ndarray:
     n = card.field_size
-    style = np.array([STYLE_SCORE.get(r.running_style, 0.0) for r in card.runners])
-    n_front = sum(r.running_style == "front" for r in card.runners)
+    style = style_scores(card, early_speed)
+    n_front = int((style >= params.front_runner_threshold).sum())
     pace = rng.normal(params.pace_per_front_runner * (n_front - 1), 1.0, (n_sims, 1))
     shocks = -params.pace_effect * pace * style
 
     draw = np.array([r.draw if r.draw is not None else r.number for r in card.runners], float)
     span = draw.max() - draw.min()
     position = 2 * (draw - draw.min()) / span - 1 if span else np.zeros(n)  # -1 inside, +1 out
-    bias = rng.normal(0.0, params.track_bias_sd[card.going], (n_sims, 1))
+    bias_sd = params.track_bias_sd[card.going]
+    if card.weather in ("rain", "snow"):
+        bias_sd *= params.rain_bias_multiplier
+    if card.wind_speed:
+        bias_sd *= 1.0 + params.wind_bias_per_ms * card.wind_speed
+    bias = rng.normal(0.0, bias_sd, (n_sims, 1))
     shocks -= bias * position  # bias > 0 favours the inside
 
     sigma = params.unknown_form_sd / np.sqrt(1.0 + n_runs)
@@ -196,7 +215,9 @@ def simulate_race(
         m = min(chunk_size, n_sims - start)
         keys = log_s + rng.gumbel(size=(m, n))
         if shocks:
-            keys += race_shocks(card, m, rng, params, evaluation.n_runs)
+            keys += race_shocks(
+                card, m, rng, params, evaluation.n_runs, evaluation.raw["early_speed"].to_numpy()
+            )
         top = np.argpartition(-keys, 2, axis=1)[:, :3]
         order = np.argsort(-np.take_along_axis(keys, top, axis=1), axis=1)
         top = np.take_along_axis(top, order, axis=1)  # first, second, third

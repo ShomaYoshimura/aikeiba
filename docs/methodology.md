@@ -5,13 +5,20 @@ when a decision changes.
 
 ## How a prediction is made
 
-1. **Abstract.** Everything known before the race becomes 30 factors per runner
-   (`src/aikeiba/factors.py`). Statistics come from all races; rates with few observations are
+1. **Abstract.** Everything known before the race becomes 55 factors per runner
+   (`src/aikeiba/factors.py`; the list with descriptions is `factors.FACTORS`). Statistics come from all races; rates with few observations are
    shrunk toward a prior so that a small sample cannot produce an extreme value.
    Race context comes from three sets of past races: past editions of the same race
    (`race_trend`, 10 years), reference races at the same course, surface and distance
    (`course_trend` by running style, age, sex, last finish and sire, 5 years, all classes), and
-   the gate records over those reference races (`draw_bias`).
+   the gate records over those reference races (`draw_bias`). On race day, earlier races of
+   the same day give today's track bias (`track_bias_today`, a ridge regression of
+   performance on gate and early position, `bias.py`).
+   Speed figures and race levels are computed as of the race date (`history_metrics.py`):
+   a figure is the time against the course-and-distance standard, minus that day's track
+   variant, adjusted for weight carried; a race's level is how its other runners did later.
+   With 55 factors and about 130 graded races a year, new factors must earn their place:
+   each one is kept only if the walk-forward scores improve with it.
 2. **Compare within the race.** Each factor is z-scored within the field. A factor says how
    much better than *this field* a runner is; unknown values count as the field average.
 3. **Score.** A linear model turns the factor vector into a log-strength (`model.py`). Linear
@@ -25,7 +32,9 @@ when a decision changes.
    fundamental weights (Benter's approach). The market is thus an input with a learned
    weight, not something the model copies.
 5. **Simulate.** 1,000,000 Plackett-Luce trials with shared pace and track-bias shocks give
-   win, top-2 and top-3 probabilities and bet-type frequencies (`simulate.py`). More trials
+   win, top-2 and top-3 probabilities and bet-type frequencies (`simulate.py`). The pace
+   shock uses each runner's measured early position where known (the running-style label
+   otherwise), and rain, snow and wind widen the track-bias spread. More trials
    only reduce sampling noise; accuracy comes from steps 1–4.
 6. **Mark.** Three strategies turn the probabilities into ◎○▲ (`strategies.py`):
 

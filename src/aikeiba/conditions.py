@@ -17,6 +17,20 @@ ALL_BINS = tuple(
 )
 
 
+EAST_COURSES = {"Tokyo", "Nakayama", "Fukushima", "Niigata", "東京", "中山", "福島", "新潟"}
+WEST_COURSES = {"Kyoto", "Hanshin", "Chukyo", "Kokura", "京都", "阪神", "中京", "小倉"}
+
+
+def course_region(course: str) -> str | None:
+    """ "east" (Miho side) or "west" (Ritto side); None for Hokkaido and unknown courses,
+    where horses from both centres usually stay for the summer meeting."""
+    if course in EAST_COURSES:
+        return "east"
+    if course in WEST_COURSES:
+        return "west"
+    return None
+
+
 def distance_band(distance: float) -> str:
     return next(name for limit, name in DISTANCE_BANDS if distance <= limit)
 

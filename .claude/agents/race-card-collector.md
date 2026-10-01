@@ -22,8 +22,10 @@ output path.
 
 ## What to collect
 
-- `race`: `name`, `grade`, `date`, `course`, `surface` (芝/ダート), `distance`, `going`
-  (良/稍重/重/不良 as announced before the cutoff; if only a forecast exists, use it and say so).
+- `race`: `name`, `grade`, `date`, `post_time` (HH:MM), `course`, `surface` (芝/ダート),
+  `distance`, `going` (良/稍重/重/不良 as announced before the cutoff; if only a forecast exists,
+  use it and say so), `cushion` (JRA cushion value) and `moisture` (moisture content, %) as
+  published by JRA before the cutoff, `weather` (晴/曇/雨/小雨/雪) and `wind_speed` (m/s).
 - `runners`: for each horse, `number` (馬番), `horse`, `draw` (枠番), `age`, `sex`,
   `weight_carried`, `jockey`, and `win_odds` only if odds before the cutoff are available for
   every runner (for a past race, the odds shown on the pre-race odds page, not the result).
@@ -37,6 +39,11 @@ output path.
   "コース別成績" / "コースデータ" / "種牡馬別成績（コース）". Say which period and classes the
   numbers cover. Only include records you can read from a source.
 - `course_draw_stats`: gate (枠番) records over the same reference races.
+- `same_day_races` (race day only): the races already run **earlier today at this course on
+  the same surface** before the cutoff, each as `{"surface", "distance", "runners": [{"draw",
+  "early_position", "finish"}]}` (gate, position at the first corner, finishing position).
+  These results are allowed: they are earlier races, not the target race. Leave the field
+  out for a past race verified with a cutoff the evening before.
 
 The format is in `examples/race_card.example.json`. Write the JSON to the output path, then
 check it:

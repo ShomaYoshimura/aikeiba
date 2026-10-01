@@ -25,21 +25,33 @@ known), and an output path.
 Write `{"runners": [...], "sources": [...]}` where each runner has `number`, `horse` and as
 many of these as you can confirm:
 
-- Connections and pedigree: `trainer`, `owner`, `breeder`, `region` (産地), `sire`, `damsire`.
-- Condition: `horse_weight`, `horse_weight_change` (only if announced before the cutoff).
+- Connections and pedigree: `trainer`, `trainer_center` (美浦/栗東), `owner`, `breeder`,
+  `region` (産地), `sire`, `dam`, `damsire`, `inbreeding_crosses` (e.g. `["4x3"]`, as listed in
+  the pedigree; leave out if not listed).
+- Condition: `horse_weight`, `horse_weight_change` (only if announced before the cutoff),
+  `previous_odds` (odds from an earlier time, e.g. the day before, when current odds exist).
 - `running_style`: 逃げ/先行/差し/追込, judged from corner positions in recent runs.
 - `past_runs`: up to 10, most recent first: `date`, `finish`, `field_size`, `race_name`,
-  `course`, `surface`, `distance`, `going`, `grade`, `jockey`, `last3f`.
+  `course`, `surface`, `distance`, `going`, `grade`, `jockey`, `weight_carried`, `last3f`,
+  `time` (seconds), `margin` (seconds behind the winner), `early_position` (position at the
+  first corner, from the passing order), `popularity` (betting rank), `cushion` (that day's
+  cushion value), `trouble` (true if the race report notes a bad start, being blocked or
+  other interference), and `speed_figure` / `race_level` only if one source publishes them
+  for every runner (use the same source for all horses).
 - `workouts`: latest first: `date`, `course` (e.g. 美浦W, 栗東坂路), `time_4f`, `last_1f`,
   `intensity`; or `workout_rating` A-E if a source grades them.
 - `stats`: `{"starts": n, "top3": k}` for `jockey_year`, `jockey_graded`, `jockey_course`,
   `trainer`, `trainer_graded`, `trainer_jockey`, `owner`, `breeder`, `region`,
   `sire_condition` (the sire's progeny on this surface, distance band and going),
-  `damsire_condition`. All counted up to the cutoff.
+  `damsire_condition`, `siblings` (the dam's other foals combined), `dam_race` (the dam's own
+  racing record). All counted up to the cutoff.
 - `stable_comment` and `comment_score` (-2..2):
   +2 clear, specific confidence; +1 positive; 0 routine or vague; -1 hedged or a minor
   concern; -2 a clear problem (injury, missed work, "just a run"). Score only what the
   comment says, not the horse's reputation or odds. Quote the comment.
+- `paddock_comment` and `paddock_score` (-2..2), only on race day from paddock or warm-up
+  reports published before the cutoff: +2 outstanding condition, +1 good, 0 normal, -1 a
+  concern (sweating, tense, looks heavy), -2 a clear problem. Quote the report.
 - `consensus_share` (0..1): among public predictions published before the cutoff, the share
   giving this horse ◎ or ○. Use several independent sources and say how many predictions it
   is based on. It is a weak signal; do not let it colour any other field.

@@ -27,8 +27,10 @@ roadmap is the order in which to build it. Two rules apply to every phase:
 
 - [x] `/predict-race` Claude Code skill: race card from public sources → 1,000,000-trial
       Monte Carlo (`aikeiba-simulate`) → ◎○▲ and quinella/trio/trifecta probabilities
-- [x] 30 factors per runner (horse, pedigree, connections, jockey incl. head-to-head, race
-      trends and reference races at the same course and distance, workouts, stable comments, public consensus), from history or from the card
+- [x] 55 factors per runner (horse incl. speed figures, margins, early position, race level and
+      rotation, pedigree incl. siblings, connections, jockey incl. head-to-head and pairing,
+      race trends, reference races at the same course and distance, today's track bias,
+      paddock, odds movement, workouts, stable comments, public consensus), from history or from the card
 - [x] `aikeiba-train`: Plackett-Luce fit of factor weights on past graded races, market
       combination, walk-forward report (verified on synthetic history)
 - [ ] Fit the weights on real history (needs #2); then fit `ShockParams` the same way
@@ -60,6 +62,7 @@ Each item is merged only if it improves the Phase 1 backtest.
 1. **JV-Link ingestion worker** (#5) on Windows (`ingest/windows/`), writing parquet with
    `available_at` timestamps.
 2. **Speed index** (#6) with going (track condition) variants estimated from earlier races only.
+   The figure is implemented (`history_metrics.speed_figures`); the ablation on real data is pending.
 3. **Hierarchical ELO** (#7): a global rating plus condition offsets, with K tuned by walk-forward.
 4. **Course-fit model** and **KNN similar-race features** (#8).
 5. **Calibration** (#9) (isotonic/Platt) on out-of-fold predictions from all races, renormalized

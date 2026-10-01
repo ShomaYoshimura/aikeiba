@@ -32,10 +32,11 @@ recent form and going from public sources into a race card, then runs:
 uv run aikeiba-simulate data/race_cards/<card>.json --sims 1000000
 ```
 
-The system targets graded races (G1/G2/G3). Each runner is abstracted into a vector of 30
-factors: past performance and aptitude, pedigree, trainer, owner, breeder and region, jockey
-form and head-to-head record, draw bias, trends of past editions and of reference races at the same course and distance, workouts, a scored stable comment
-and the share of public predictions. The simulation runs 1,000,000 trials of the finishing
+The system targets graded races (G1/G2/G3). Each runner is abstracted into a vector of 55
+factors: past performance and aptitude, speed figures, margins, early position, race level,
+rotation, pedigree, trainer, owner, breeder and region, jockey
+form and head-to-head record, draw bias, today's track bias, trends of past editions and of reference races at the same course and distance, workouts, a scored stable comment and paddock report, odds
+movement and the share of public predictions. The simulation runs 1,000,000 trials of the finishing
 order (about 2 seconds) with shared pace and track-bias shocks, and picks ◎○▲ with the factors
 behind each pick, plus the most likely quinella, trio and trifecta. See
 `examples/race_card.example.json` for the card format.
@@ -92,7 +93,9 @@ npm run dev
 | `racecard.py` | Race card JSON for one upcoming race |
 | `history.py` | History table of past races and its derived columns |
 | `conditions.py`, `stats.py` | Condition bins, similarity, shrunk rates, profile vectors, head-to-head |
-| `factors.py` | The 30 factors per runner, from history or from the card |
+| `factors.py` | The 55 factors per runner, from history or from the card |
+| `history_metrics.py` | Point-in-time speed figures and race levels from the history |
+| `bias.py` | Today's track bias from earlier races on the same day |
 | `model.py` | Within-race standardization and the linear Plackett-Luce model |
 | `train.py` | Fits factor weights on past graded races (`aikeiba-train`) |
 | `strength.py` | Card → factors → log-strengths, with the reasons per runner |

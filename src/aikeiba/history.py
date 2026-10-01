@@ -46,6 +46,16 @@ OPTIONAL = (
     "horse_weight_change",
     "running_style",
     "last3f",
+    "time",  # final time in seconds
+    "early_position",  # position at the first corner
+    "cushion",
+    "moisture",
+    "trouble",  # 1 if the run had a bad start or interference
+    "dam",
+    "trainer_center",  # 美浦 / 栗東 (or east / west)
+    "prev_odds",  # odds observed earlier than win_odds (e.g. the day before)
+    "popularity",  # betting rank; derived from win_odds when missing
+    "weather",
 )
 
 
@@ -80,6 +90,10 @@ def prepare_history(history: pd.DataFrame) -> pd.DataFrame:
     h["year"] = h[RACE_DATE].dt.year
     h = h.sort_values([RACE_DATE, RACE_ID], kind="stable").reset_index(drop=True)
     h["prev_finish"] = h.groupby(HORSE_ID)[FINISH_POSITION].shift(1)
+    if h["popularity"].isna().all() and h["win_odds"].notna().any():
+        h["popularity"] = h.groupby(RACE_ID)["win_odds"].rank(method="min")
+    h["margin"] = h["time"] - h.groupby(RACE_ID)["time"].transform("min")
+    h["post_time"] = pd.to_datetime(h["post_time"])
     return h
 
 
@@ -106,7 +120,10 @@ def card_from_history(rows: pd.DataFrame) -> RaceCard:
             trainer=opt(r, "trainer"),
             owner=opt(r, "owner"),
             sire=opt(r, "sire"),
+            dam=opt(r, "dam"),
             damsire=opt(r, "damsire"),
+            trainer_center=opt(r, "trainer_center"),
+            previous_odds=float(r["prev_odds"]) if has_odds and pd.notna(r["prev_odds"]) else None,
             breeder=opt(r, "breeder"),
             region=opt(r, "region"),
             age=opt(r, "age"),
@@ -127,5 +144,11 @@ def card_from_history(rows: pd.DataFrame) -> RaceCard:
         distance=int(first["distance"]),
         going=first["going"],
         grade=opt(first, "grade"),
+        post_time=(
+            None if pd.isna(first[POST_TIME]) else pd.Timestamp(first[POST_TIME]).strftime("%H:%M")
+        ),
+        cushion=opt(first, "cushion"),
+        moisture=opt(first, "moisture"),
+        weather=opt(first, "weather"),
         runners=runners,
     )
