@@ -103,6 +103,7 @@ class PastRun:
     trouble: bool | None = None  # bad start, blocked or other interference
     popularity: int | None = None  # betting rank (1 = favourite)
     weight_carried: float | None = None
+    source: str | None = None  # URL the run was read from
 
 
 @dataclass(frozen=True)

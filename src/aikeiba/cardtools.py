@@ -13,6 +13,8 @@ import argparse
 import json
 from pathlib import Path
 
+from aikeiba.audit import audit, format_report
+from aikeiba.pastruns import past_runs_from_html
 from aikeiba.racecard import parse_race_card
 
 
@@ -46,6 +48,17 @@ def main(argv=None) -> None:
     m.add_argument("-o", "--out", required=True)
     v = sub.add_parser("validate", help="check that a card parses")
     v.add_argument("card")
+    a = sub.add_parser("audit", help="cross-check runners' past runs; --fix fills agreed values")
+    a.add_argument("card")
+    a.add_argument("--fix", action="store_true")
+    a.add_argument("-o", "--out", help="where to write the fixed card (default: in place)")
+    r = sub.add_parser("runs-from-html", help="past runs from a saved past-performance page")
+    r.add_argument("html")
+    r.add_argument("--number", type=int, required=True)
+    r.add_argument("--horse", required=True)
+    r.add_argument("--source", help="URL of the page, stored with each run")
+    r.add_argument("--before", help="keep only runs before this date (YYYY-MM-DD)")
+    r.add_argument("-o", "--out", required=True, help="runner fragment JSON to write")
     args = parser.parse_args(argv)
 
     if args.command == "merge":
@@ -55,9 +68,31 @@ def main(argv=None) -> None:
         Path(args.out).write_text(json.dumps(card, ensure_ascii=False, indent=1), "utf-8")
         filled = sum(bool(r.get("past_runs")) for r in card["runners"])
         print(f"wrote {args.out}: {len(card['runners'])} runners, {filled} with past runs")
-    else:
+    elif args.command == "validate":
         card = parse_race_card(json.loads(Path(args.card).read_text("utf-8")))
         print(f"ok: {card.name}, {card.field_size} runners")
+    elif args.command == "audit":
+        card = json.loads(Path(args.card).read_text("utf-8"))
+        report = audit(card, fix=args.fix)
+        print(format_report(report))
+        if args.fix:
+            parse_race_card(card)
+            out = Path(args.out or args.card)
+            out.write_text(json.dumps(card, ensure_ascii=False, indent=1), "utf-8")
+            print(f"\nwrote {out}")
+        if not report.ok:
+            raise SystemExit(1)
+    else:
+        html = Path(args.html).read_text("utf-8", errors="replace")
+        runs = past_runs_from_html(html, args.source)
+        if args.before:
+            runs = [run for run in runs if run["date"] < args.before]
+        fragment = {
+            "runners": [{"number": args.number, "horse": args.horse, "past_runs": runs[:10]}],
+            "sources": [args.source] if args.source else [],
+        }
+        Path(args.out).write_text(json.dumps(fragment, ensure_ascii=False, indent=1), "utf-8")
+        print(f"wrote {args.out}: {len(runs[:10])} runs")
 
 
 if __name__ == "__main__":

@@ -62,6 +62,22 @@ many of these as you can confirm:
   giving this horse ◎ or ○. Use several independent sources and say how many predictions it
   is based on. It is a weak signal; do not let it colour any other field.
 
+### Accuracy rules for past runs
+
+- **Prefer code over transcription.** When a horse's past-performance page (戦績) is
+  available, get its runs with `uv run aikeiba-fetch "<url>" --format past-runs`, or, for a
+  page saved as HTML (e.g. by the user under `<dir>/pages/`), with
+  `uv run aikeiba-card runs-from-html <file> --number N --horse <name> --source <url> --before <race date> -o <fragment>`.
+  These parse the table by its headings, so numbers are not copied by hand. Copy runs by
+  hand only when no such table is available.
+- **Record where each run came from** in its `source` field (the URL).
+- **Two-source rule for search answers.** A run taken from search answers (not from a
+  results table or the official JRA site) needs its date, race and finish to agree in two
+  independent sources; otherwise leave the run out and say so. The same applies to any
+  single value (margin, going, field size) that sources report differently.
+- Do not fill a race-level fact (field size, going, distance) from memory: leave it out;
+  `aikeiba-card audit --fix` copies it from other runners who ran in the same race.
+
 Check the fragment parses by merging it into a copy of the base card if one exists:
 
 ```bash

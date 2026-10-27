@@ -32,11 +32,22 @@ the **cutoff** to now (or, for a past race, see the verify-race skill).
 2. Split the field into groups of about four horses and run one `runner-profile-collector`
    agent per group **in parallel**: race conditions, cutoff, the horses (number, name,
    jockey), output `<dir>/runners-<n>.json`.
-3. Merge and validate:
+3. Merge, validate and cross-check:
 
 ```bash
 uv run aikeiba-card merge <dir>/base.json <dir>/runners-*.json -o <dir>/card.json
+uv run aikeiba-card audit <dir>/card.json --fix
 ```
+
+`audit` compares runners who met in the same past races: it fills a field size, going,
+distance or grade that the other runners' records agree on, and reports contradictions
+(two winners of one race, disagreeing facts, a finish beyond the field size, runs dated on
+or after the race). Resolve every reported error before simulating: re-check the value
+against a source (ask the runner agent again if needed) or remove it; never pick a value
+without a source. Report the coverage line to the user.
+
+If the user has saved past-performance pages as HTML under `<dir>/pages/`, build runner
+fragments from them with `aikeiba-card runs-from-html` instead of searching.
 
 If an agent reports missing fields, you may fill them yourself from a cited source, under
 the same rules: nothing published after the cutoff, **never guess or invent a value**, read

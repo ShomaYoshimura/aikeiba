@@ -229,7 +229,9 @@ def extract(html: str) -> dict:
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("url", nargs="?")
-    parser.add_argument("--format", choices=("all", "text", "tables", "html"), default="all")
+    parser.add_argument(
+        "--format", choices=("all", "text", "tables", "html", "past-runs"), default="all"
+    )
     parser.add_argument("--max-age", type=float, default=24.0, help="cache lifetime in hours")
     parser.add_argument("--review-terms", metavar="SITE", help="record that you read the terms")
     parser.add_argument("--note", default="", help="note stored with --review-terms")
@@ -254,6 +256,11 @@ def main(argv=None) -> None:
     print(f"<!-- {json.dumps(meta, ensure_ascii=False)} -->")
     if args.format == "html":
         print(html)
+        return
+    if args.format == "past-runs":
+        from aikeiba.pastruns import past_runs_from_html
+
+        print(json.dumps(past_runs_from_html(html, args.url), ensure_ascii=False, indent=1))
         return
     page = extract(html)
     print(f"# {page['title']}\n")

@@ -35,6 +35,19 @@ Rules for every site:
   signal and must not shape any other field.
 - Keep the URL of every page used in the card's `sources`.
 
+## Accuracy
+
+- Past-performance tables are parsed in code by their column headings (`pastruns.py`):
+  `aikeiba-fetch "<url>" --format past-runs`, or `aikeiba-card runs-from-html` for a page
+  saved from a browser. This avoids transcription errors and works on any site whose
+  table uses the standard headings (日付, レース名, 頭数, 着順, 騎手, 距離, 馬場, タイム, 着差,
+  通過, 上り).
+- Every past run carries its `source` URL.
+- `aikeiba-card audit --fix` cross-checks runners who met in the same races, fills
+  agreed race facts and reports contradictions and coverage.
+- Values from search-engine answers need two independent sources (see the
+  runner-profile-collector agent); search answers can mix years or horses.
+
 ## Past races and leakage
 
 Pages about a race usually show its result once it has been run. When verifying a past

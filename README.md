@@ -109,6 +109,8 @@ npm run dev
 | `evaluate.py` | Scores a frozen prediction against the result and keeps a log (`aikeiba-evaluate`) |
 | `strategies.py` | Three marking strategies: hit (的中重視), balanced (両立), value (回収重視) |
 | `fetch.py` | Polite page fetcher with robots.txt, rate limit, cache and text/table extraction (`aikeiba-fetch`) |
+| `pastruns.py` | Parses past-performance tables (戦績) by their column headings |
+| `audit.py` | Cross-checks a race card: shared past races, contradictions, coverage (`aikeiba-card audit`) |
 
 ## Design principles
 
