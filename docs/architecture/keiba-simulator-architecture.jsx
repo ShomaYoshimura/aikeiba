@@ -167,6 +167,15 @@ const layers = [
         detail: "実装済み（aikeiba-train）。統計は全レースから、学習例は重賞のみ。オッズがあれば市場確率と2段階で結合（Benter方式）",
       },
       {
+        name: "リスク評価シート（R1〜R8）",
+        tech: "Python",
+        phase: "P1",
+        desc: "鬼門ローテ・距離・枠×人気・血統×馬場・状態・年齢・格の固定項目を全頭一律に採点（不明は不明のまま）。確証バイアスを構造的に排除する",
+        inputs: ["race_card", "factor_vectors"],
+        outputs: ["risk_sheet"],
+        detail: "実装済み（risk.py）。各項目は既存因子と重なるため強さには加算しない（二重計上防止）。印・買い目の軸・スコア不確実性τにのみ使う。点数は未学習の事前値",
+      },
+      {
         name: "ランキング学習モデル（ベースライン）",
         tech: "LightGBM LambdaMART",
         phase: "P1",
@@ -250,6 +259,15 @@ const layers = [
         detail: "実装済み（aikeiba-simulate、約2秒）。共通ショックなしの場合はPlackett-Luceの解析解と一致することをテストで確認。試行回数を増やしても減るのはサンプリング誤差だけで、精度は入力で決まる",
       },
       {
+        name: "展開シナリオ分類（A〜E）",
+        tech: "NumPy",
+        phase: "P1",
+        desc: "各試行のペース・内外バイアスのショックをA スロー瞬発／B ミドル持続／C ハイペース消耗／D 高速前残り／E 道悪タフに分類し、シナリオ確率とシナリオ別の勝率・複勝率を集計",
+        inputs: ["common_shocks"],
+        outputs: ["scenario_probs"],
+        detail: "実装済み（simulate.py）。分類は報告用のラベルで、効果は連続ショックだけが持つ（静的シナリオで確率を作らない）",
+      },
+      {
         name: "アンサンブル統合器",
         tech: "Stacking（ロジスティック回帰）",
         phase: "P2",
@@ -288,12 +306,13 @@ const layers = [
         detail: "補正後にレース内で再正規化。重賞だけで学習すると標本不足で過学習するため全レースを使う",
       },
       {
-        name: "信頼区間生成器",
-        tech: "Bootstrap / GPyTorch",
-        phase: "P3",
-        desc: "各馬の勝率に95%信頼区間を付与。「確信を持てる予測」と「読みにくい馬」を区別",
-        inputs: ["finish_distributions", "uncertainty_sigma"],
+        name: "信頼区間生成器（スコア不確実性MC）",
+        tech: "NumPy（閉形式: ソフトマックス＋Harville）",
+        phase: "P1",
+        desc: "各馬のスコアを馬ごとのτで1万回揺らし、勝率・複勝率の90%区間とロバスト性順位を付与。「確信を持てる予測」と「読みにくい馬」を区別",
+        inputs: ["ranking_scores", "risk_sheet", "finish_distributions"],
         outputs: ["confidence_intervals"],
+        detail: "実装済み（uncertainty.py）。τ＝基礎値＋戦績の少なさ＋当該格未出走＋リスク由来（R1/R2/R8）。τは事前値。Bootstrap・ガウス過程（uncertainty_sigma）による精緻化はP3",
       },
       {
         name: "継続評価モニター",
@@ -331,6 +350,33 @@ const layers = [
         inputs: ["calibrated_probs", "exotic_probs", "odds_at_prediction_time"],
         outputs: ["bet_recommendations.csv"],
         detail: "閾値とケリー係数はバックテストの回収率とドローダウンで決める",
+      },
+      {
+        name: "オッズ空白分析",
+        tech: "Python",
+        phase: "P1",
+        desc: "人気順のオッズ列からクラスターと空白（倍率差）を検出し、オッズを見ない適性順位との乖離・期待値（平均と区間下限）・過剰人気（R9）を判定",
+        inputs: ["calibrated_probs", "confidence_intervals", "odds_at_prediction_time"],
+        outputs: ["odds_ladder", "overbet_flags"],
+        detail: "実装済み（market.py）。オッズはこの段階で初めて評価に使う。R9はスコアを変えない",
+      },
+      {
+        name: "予算馬券・リターン試算",
+        tech: "Python",
+        phase: "P1",
+        desc: "印（◎○▲△☆×）から予算内の単勝・馬連・3連複を設計し、推定オッズで期待回収率・全滅確率・パターンA/B/Cの払戻を試算",
+        inputs: ["odds_ladder", "risk_sheet", "confidence_intervals", "exotic_probs"],
+        outputs: ["tickets", "return_scenarios"],
+        detail: "実装済み（tickets.py）。馬連・3連複のオッズは単勝オッズからの推定値（Harville×払戻率）と明示。配分と閾値は予想ログで調整する",
+      },
+      {
+        name: "予想記事・PDFレポート",
+        tech: "Claude（記事）/ HTML / Chromium（PDF）",
+        phase: "P1",
+        desc: "analysis.jsonから結論先出しの予想記事（印・骨子・オッズ空白図・消し根拠・買い目・リターン試算・リスク開示）を生成し、HTML/PDFに組版",
+        inputs: ["tickets", "return_scenarios", "odds_ladder", "risk_sheet", "scenario_probs", "confidence_intervals"],
+        outputs: ["article.md", "report.pdf"],
+        detail: "実装済み（aikeiba-report、/predict-race）。記事中の数値はすべてanalysis.json・出馬表・出典から。データにない敗因や数値は書かない",
       },
       {
         name: "ペース感応度マップ",
@@ -441,7 +487,7 @@ export default function App() {
           <div style={{
             fontSize: "10px", color: COLORS.textMuted, letterSpacing: "1px",
           }}>
-            v1.1 — ARCHITECTURE BLUEPRINT
+            v1.2 — ARCHITECTURE BLUEPRINT
           </div>
         </div>
         <h1 style={{
@@ -1044,7 +1090,7 @@ export default function App() {
         flexWrap: "wrap", gap: "8px",
       }}>
         <div style={{ fontSize: "10px", color: COLORS.textMuted, letterSpacing: "2px" }}>
-          GRADE RACE PREDICTION ENGINE — ARCHITECTURE v1.1
+          GRADE RACE PREDICTION ENGINE — ARCHITECTURE v1.2
         </div>
         <div style={{ fontSize: "10px", color: COLORS.textMuted }}>
           baseline first × market benchmark × walk-forward validation

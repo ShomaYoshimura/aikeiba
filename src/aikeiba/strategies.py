@@ -87,3 +87,107 @@ def make_picks(win, top2, top3, odds, params: StrategyParams | None = None) -> d
             for mark, i in zip(MARKS, idx, strict=False)
         ]
     return out
+
+
+@dataclass(frozen=True)
+class ArticleParams:
+    """Thresholds of the report marks (step 11-B of the workflow); initial choices."""
+
+    honmei_min_risk: float = -7.0  # ◎ needs a risk total at or above this
+    honmei_candidates: int = 3  # ◎ is the most robust of this many best-rated runners
+    taikou_min_ev: float = 1.0  # ○
+    tanana_min_ev: float = 1.5  # ▲ (with odds)
+    tanana_min_popularity: int = 4  # ▲ is a runner the market does not rank near the top
+    renka_max: int = 4  # △
+    renka_min_top3: float = 0.15
+    chui_min_popularity: int = 8  # ☆: long odds, low risk, rated well above its odds
+    chui_max_risk: float = -3.0
+    chui_rank_gap: int = 4
+    drop_risk: float = -12.0  # ×: risk total at or below this
+    discount_risk: float = -8.0  # ×: or this, when fancied and not good value
+    discount_popularity: int = 4
+
+
+ARTICLE_MARKS = ("◎", "○", "▲", "△", "☆", "×")
+
+
+def article_marks(
+    win, top3, win_lo, win_hi, risk_total, odds=None, params: ArticleParams | None = None
+) -> list[tuple[str, int]]:
+    """Report marks as (mark, runner index), in mark order.
+
+    Each mark combines three things, never one alone: the probabilities (and how robust
+    they are), the risk sheet total, and, with odds, the expected value.
+    """
+    p = params or ArticleParams()
+    win, top3 = np.asarray(win, float), np.asarray(top3, float)
+    risk = np.asarray(risk_total, float)
+    n = len(win)
+    ev = None if odds is None else win * np.asarray(odds, float)
+    pop = None if odds is None else np.argsort(np.argsort(odds, kind="stable")) + 1
+    win_rank = np.argsort(np.argsort(-win, kind="stable")) + 1
+
+    drop = risk <= p.drop_risk
+    if pop is not None:
+        drop |= (risk <= p.discount_risk) & (pop <= p.discount_popularity) & (ev < 1.0)
+    taken: set[int] = set(np.flatnonzero(drop).tolist())
+    out: list[tuple[str, int]] = []
+
+    def free(mask=None):
+        m = np.ones(n, bool) if mask is None else mask.copy()
+        m[list(taken)] = False
+        return m
+
+    def best(values, mask):
+        if not mask.any():
+            return None
+        return int(np.argmax(np.where(mask, values, -np.inf)))
+
+    rel_width = (np.asarray(win_hi) - np.asarray(win_lo)) / np.maximum(win, 1e-9)
+    cands = [i for i in np.argsort(-win) if free()[i] and risk[i] >= p.honmei_min_risk]
+    cands = cands[: p.honmei_candidates]
+    narrow = [i for i in cands if rel_width[i] <= np.median(rel_width)]
+    honmei = narrow[0] if narrow else (cands[0] if cands else best(win, free()))
+    if honmei is not None:
+        out.append(("◎", int(honmei)))
+        taken.add(int(honmei))
+
+    taikou = None
+    if ev is not None:
+        taikou = best(top3, free(ev >= p.taikou_min_ev))
+    taikou = best(top3, free()) if taikou is None else taikou
+    if taikou is not None:
+        out.append(("○", taikou))
+        taken.add(taikou)
+
+    tanana = None
+    if ev is not None:
+        tanana = best(win, free((ev >= p.tanana_min_ev) & (pop >= p.tanana_min_popularity)))
+        tanana = best(top3, free(ev >= p.taikou_min_ev)) if tanana is None else tanana
+    tanana = best(top3, free()) if tanana is None else tanana
+    if tanana is not None:
+        out.append(("▲", tanana))
+        taken.add(tanana)
+
+    for i in np.argsort(-top3):
+        if sum(m == "△" for m, _ in out) >= p.renka_max:
+            break
+        if int(i) not in taken and top3[i] >= p.renka_min_top3:
+            out.append(("△", int(i)))
+            taken.add(int(i))
+
+    if pop is not None:
+        for i in np.argsort(-win):
+            i = int(i)
+            if (
+                i not in taken
+                and pop[i] >= p.chui_min_popularity
+                and risk[i] >= p.chui_max_risk
+                and pop[i] - win_rank[i] >= p.chui_rank_gap
+            ):
+                out.append(("☆", i))
+                taken.add(i)
+                break
+
+    out += [("×", int(i)) for i in np.flatnonzero(drop)]
+    return out
