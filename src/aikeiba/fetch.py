@@ -102,6 +102,18 @@ def record_terms_review(key: str, note: str = "") -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
 
 
+def _read_stamp(stamp: Path) -> float | None:
+    """Wall-clock time of the last request recorded in ``stamp``, or None if absent."""
+    try:
+        text = stamp.read_text("utf-8").strip()
+    except FileNotFoundError:
+        return None
+    try:
+        return float(text)
+    except ValueError:  # stamp from an older version (empty file): fall back to mtime
+        return stamp.stat().st_mtime
+
+
 class Fetcher:
     def __init__(
         self,
@@ -118,16 +130,36 @@ class Fetcher:
         self.session.headers["User-Agent"] = USER_AGENT
         self.require_review = require_review
         self._robots: dict[str, urllib.robotparser.RobotFileParser] = {}
+        self._last_request: dict[str, float] = {}  # host -> time.monotonic()
+        self.request_times: dict[str, list[float]] = {}  # host -> monotonic times sent
 
     # --- politeness -------------------------------------------------------------------
     def _wait_turn(self, host: str) -> None:
+        """Block until at least ``min_interval`` seconds have passed since the last request
+        to ``host``, then record this request.
+
+        Every request counts, robots.txt included; the first request to a host does not
+        wait. Within the process the interval is measured on ``time.monotonic()``. Across
+        processes it comes from a stamp file holding the wall-clock time of the last
+        request (written explicitly: file mtimes come from a coarse kernel clock that can
+        lag ``time.time()`` by milliseconds). The loop sleeps until the deadline has
+        actually passed, so the interval is never cut short.
+        """
         stamp = self.cache_dir / "_last_request" / host
         stamp.parent.mkdir(parents=True, exist_ok=True)
-        if stamp.exists():
-            wait = self.min_interval - (time.time() - stamp.stat().st_mtime)
-            if wait > 0:
-                time.sleep(wait)
-        stamp.touch()
+        now = time.monotonic()
+        deadline = now
+        if host in self._last_request:
+            deadline = self._last_request[host] + self.min_interval
+        last_wall = _read_stamp(stamp)
+        if last_wall is not None:
+            # Wall-clock deadline from another process, mapped onto the monotonic clock.
+            deadline = max(deadline, now + last_wall + self.min_interval - time.time())
+        while (remaining := deadline - time.monotonic()) > 0:
+            time.sleep(remaining)
+        self._last_request[host] = time.monotonic()
+        self.request_times.setdefault(host, []).append(self._last_request[host])
+        stamp.write_text(repr(time.time()), "utf-8")
 
     def allowed_by_robots(self, url: str) -> bool:
         parts = urlparse(url)

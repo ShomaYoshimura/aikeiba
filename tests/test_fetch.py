@@ -55,10 +55,28 @@ def test_rate_limit_between_requests(site, tmp_path):
 
     fetch.record_terms_review("local")
     f = Fetcher(cache_dir=tmp_path / "cache", min_interval=0.3)
-    start = time.time()
+    start = time.monotonic()
     f.get(f"{site}/race.html", max_age_hours=0)
     f.get(f"{site}/race.html", max_age_hours=0)
-    assert time.time() - start >= 0.6  # robots.txt + two pages, 0.3 s apart
+    (times,) = f.request_times.values()
+    assert len(times) == 3  # robots.txt + two pages
+    assert times[0] - start < 0.3  # the first request to a host does not wait
+    assert all(b - a >= 0.3 for a, b in zip(times, times[1:], strict=False))
+    assert time.monotonic() - start >= 0.6
+
+
+def test_rate_limit_shared_across_fetchers(site, tmp_path):
+    import time
+
+    fetch.record_terms_review("local")
+    cache = tmp_path / "cache"
+    Fetcher(cache_dir=cache, min_interval=0.3).get(f"{site}/race.html", max_age_hours=0)
+    done = time.monotonic()
+    f2 = Fetcher(cache_dir=cache, min_interval=0.3)  # e.g. another process
+    f2.get(f"{site}/race.html", max_age_hours=0)
+    (times,) = f2.request_times.values()
+    assert times[0] - done >= 0.3 - 0.01  # wall/monotonic clock mapping tolerance
+    assert times[1] - times[0] >= 0.3
 
 
 def test_extract_text_and_tables():
