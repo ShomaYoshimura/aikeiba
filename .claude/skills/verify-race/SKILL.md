@@ -32,14 +32,22 @@ uv run aikeiba-simulate <dir>/card.json --sims 1000000 --seed 0 --json <dir>/pre
   [--history data/history.parquet] [--weights data/models/weights.json]
 ```
 
-Keep `--seed 0` so the run can be reproduced.
+Keep `--seed 0` so the run can be reproduced. To test the full analysis workflow as well
+(risk sheet, report marks, tickets), also run it now and, if wanted, write the article
+(predict-race step 4) before freezing:
+
+```bash
+uv run aikeiba-report analyze <dir>/card.json --seed 0 --out <dir>/analysis.json \
+  [--history data/history.parquet] [--weights data/models/weights.json]
+```
 
 ## 3. Freeze
 
 Do not change `card.json` or `prediction.json` after this point. Record their hashes:
 
 ```bash
-sha256sum <dir>/card.json <dir>/prediction.json > <dir>/frozen.sha256
+sha256sum <dir>/card.json <dir>/prediction.json [<dir>/analysis.json <dir>/article.md] \
+  > <dir>/frozen.sha256
 ```
 
 ## 4. Fetch the result
@@ -64,9 +72,12 @@ uv run aikeiba-evaluate <dir>/prediction.json <dir>/result.json --log data/predi
    strategy's return (say whether payouts came from the result or the card odds).
 4. Calibration of this race: the winner's predicted probability and model rank, the model's
    log loss, and the same for the market when odds were used.
-5. What the model missed: the factors behind the picks (`reasons`) and what distinguished the
+5. If `analysis.json` was frozen: the report marks (◎○▲△☆×) and their finishes, whether
+   the runners with a high risk total (× or 割引) finished poorly, and what the budgeted
+   tickets would have returned (estimated odds; say so).
+6. What the model missed: the factors behind the picks (`reasons`) and what distinguished the
    actual top three, from the card only.
-6. The running summary printed from the log: hit rates per strategy against the favourite,
+7. The running summary printed from the log: hit rates per strategy against the favourite,
    and calibration (ECE and the calibration table). The primary scores are hit rate and
    calibration (`docs/methodology.md`). Stress that one race says little: with ~100 races a
    top-3 rate still has about ±10 points of uncertainty.

@@ -40,6 +40,13 @@ roadmap is the order in which to build it. Two rules apply to every phase:
       and JRA (robots.txt, rate limit, cache, terms-review gate); sources in `docs/data-sources.md`
 - [ ] Review each site's terms and allow its domains in the environment's network settings
 - [ ] Run `/verify-race` on the recent graded races once network access to the sources is set
+- [x] Analysis workflow v5.0 (`docs/race-analysis-workflow.md`): risk sheet R1–R8 for every
+      runner (`risk.py`), scenarios A–E from the simulation's shocks, score-uncertainty
+      intervals and robustness (`uncertainty.py`), odds ladder / EV / overbet (`market.py`),
+      report marks ◎○▲△☆×, budgeted tickets with returns A/B/C (`tickets.py`), prediction
+      article and HTML/PDF report (`aikeiba-report`); blueprint v1.2 adds these modules
+- [ ] Tune the risk points, τ and the report-mark thresholds on the prediction log; score the
+      report marks in `aikeiba-evaluate` next to the three strategies
 - [ ] Speed up factor building for large histories (currently about 0.4 s per race)
 
 ## Phase 1: Real-data MVP
