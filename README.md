@@ -13,6 +13,9 @@ data. Real JRA data is not connected yet. See [ROADMAP.md](ROADMAP.md) for what 
 
 ## Quick start
 
+The full guide (setup, network access and terms review, predicting a race, checking past
+races, fitting weights, data sources and known issues) is [docs/usage.md](docs/usage.md).
+
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.11.
 
 ```bash
