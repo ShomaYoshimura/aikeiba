@@ -4,9 +4,9 @@
 z-scores each factor within the race, so every factor is expressed as "how much
 better than this field" and missing values count as the field average.
 
-With a history table the statistics are computed from it, using only races on
-earlier dates. Without one, they come from the card's ``past_runs``, ``stats`` and
-``trends`` fields, which the predict-race skill fills from public sources.
+Factors are computed from the card only: its ``past_runs``, ``stats``, ``trends`` and
+other fields, which the collector agents fill from public sources and
+``history.enrich_card`` fills from a history table (training and race day alike).
 """
 
 from __future__ import annotations
@@ -17,8 +17,7 @@ import numpy as np
 import pandas as pd
 
 from aikeiba.bias import estimate_bias, inside_score
-from aikeiba.conditions import GOING_GROUP, condition_bin, course_region, race_name_key, similarity
-from aikeiba.history_metrics import race_levels, speed_figures
+from aikeiba.conditions import GOING_GROUP, course_region, similarity
 from aikeiba.racecard import (
     COURSE_TREND_ATTRS,
     EAST_WEST,
@@ -27,14 +26,10 @@ from aikeiba.racecard import (
     RaceCard,
     Runner,
     inbreeding_coefficient,
+    last_finish_band,
 )
-from aikeiba.schema import GRADED
 from aikeiba.stats import (
-    grouped_top3_rates,
-    head_to_head,
-    profile_matrix,
     shrunk_rate,
-    top3_rate,
 )
 
 
@@ -125,7 +120,6 @@ _HORSE_M, _ENTITY_M, _PAIR_M, _PROFILE_M, _DRAW_M, _TREND_M = 3, 20, 10, 30, 50,
 # Attributes compared against past editions of the race and against reference races at the
 # same course and distance. The gate is left out of the latter: draw_bias already covers it.
 RACE_TREND_ATTRS = EDITION_TREND_ATTRS
-_EDITION_YEARS, _REFERENCE_YEARS = 10, 5
 
 
 RUN_COLUMNS = (
@@ -133,8 +127,6 @@ RUN_COLUMNS = (
     "jockey", "last3f", "time", "margin", "early_position", "speed_figure", "race_level",
     "cushion", "trouble", "popularity", "weight_carried",
 )  # fmt: skip
-# history column for each run column, where the names differ
-_HISTORY_RUN_COLUMNS = {"date": "race_date", "finish": "finish_position"}
 FEMALE = {"F", "M", "牝", "filly", "mare"}
 
 
@@ -144,16 +136,6 @@ def _past_runs_frame(runner: Runner) -> pd.DataFrame:
     df = pd.DataFrame([vars(p) for p in runner.past_runs])
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values("date", ascending=False, ignore_index=True)
-
-
-def _history_runs(runner: Runner, horse_rows: pd.DataFrame) -> pd.DataFrame:
-    if runner.horse_id is not None:
-        rows = horse_rows[horse_rows["horse_id"] == runner.horse_id]
-    else:
-        rows = horse_rows[horse_rows["horse"] == runner.horse]
-    return pd.DataFrame({c: rows[_HISTORY_RUN_COLUMNS.get(c, c)] for c in RUN_COLUMNS}).sort_values(
-        "date", ascending=False, ignore_index=True
-    )
 
 
 def _performance(runs: pd.DataFrame) -> np.ndarray:
@@ -340,92 +322,6 @@ def card_stat_factors(runner: Runner) -> dict:
     return out
 
 
-def history_stat_factors(card: RaceCard, before: pd.DataFrame, last_finishes: list) -> list[dict]:
-    """Connection, jockey and race factors for every runner from the history table.
-
-    ``last_finishes`` holds each runner's previous finishing position (None if unknown).
-    """
-    today = pd.Timestamp(card.date)
-    recent3 = before[before["race_date"] >= today - pd.DateOffset(years=3)]
-    recent5 = before[before["race_date"] >= today - pd.DateOffset(years=5)]
-    this_year = before[before["year"] == today.year]
-    graded3 = recent3[recent3["grade"].isin(GRADED)]
-    course = before[(before["course"] == card.course) & (before["surface"] == card.surface)]
-    cond = condition_bin(card.surface, card.distance, card.going)
-    p0 = float(before["top3"].mean()) if len(before) else _BASE_TOP3
-
-    def rates(rows, col, values, m):
-        rows = rows[rows[col].isin([v for v in values if v is not None])]
-        return grouped_top3_rates(rows, [col], p0, m) if len(rows) else pd.Series(dtype=float)
-
-    r = card.runners
-    jockeys = [x.jockey for x in r]
-    trainers = [x.trainer for x in r]
-    tables = {
-        "jockey_year_rate": ("jockey", rates(this_year, "jockey", jockeys, _ENTITY_M)),
-        "jockey_graded_rate": ("jockey", rates(graded3, "jockey", jockeys, _ENTITY_M)),
-        "jockey_course_rate": ("jockey", rates(course, "jockey", jockeys, _ENTITY_M)),
-        "trainer_rate": ("trainer", rates(recent3, "trainer", trainers, _ENTITY_M)),
-        "trainer_graded_rate": ("trainer", rates(graded3, "trainer", trainers, _ENTITY_M)),
-        "owner_rate": ("owner", rates(recent3, "owner", [x.owner for x in r], _ENTITY_M)),
-        "breeder_rate": ("breeder", rates(recent5, "breeder", [x.breeder for x in r], _ENTITY_M)),
-        "region_rate": ("region", rates(recent5, "region", [x.region for x in r], _ENTITY_M)),
-    }
-    pairs = before[before["trainer"].isin(trainers) & before["jockey"].isin(jockeys)]
-    pair_rates = grouped_top3_rates(pairs, ["trainer", "jockey"], p0, _PAIR_M) if len(pairs) else {}
-    profiles = {}
-    for col in ("sire", "damsire"):
-        values = [getattr(x, col) for x in r if getattr(x, col) is not None]
-        rows = before[before[col].isin(values)]
-        profiles[col] = profile_matrix(rows, col, _PROFILE_M) if len(rows) else pd.DataFrame()
-    h2h = head_to_head(recent3, "jockey", [j for j in jockeys if j is not None])
-
-    same_track = course[course["distance"] == card.distance]
-    draw_rates = rates(same_track, "draw", [x.draw for x in r], _DRAW_M)
-    editions = before[before["name_key"] == race_name_key(card.name)]
-    editions = editions[editions["race_date"] >= today - pd.DateOffset(years=_EDITION_YEARS)]
-    reference = same_track[same_track["race_date"] >= today - pd.DateOffset(years=_REFERENCE_YEARS)]
-    edition_table = _trend_table(editions, RACE_TREND_ATTRS)
-    reference_table = _trend_table(reference, COURSE_TREND_ATTRS)
-
-    dams = [x.dam for x in r if x.dam is not None]
-    dam_foals = before[before["dam"].isin(dams)] if dams else before.iloc[0:0]
-    dams_raced = before[before["horse"].isin(dams)] if dams else before.iloc[0:0]
-
-    out = []
-    for x, last in zip(r, last_finishes, strict=True):
-        d = {}
-        if x.dam is not None:
-            own = (dam_foals["horse_id"] == x.horse_id) | (dam_foals["horse"] == x.horse)
-            d["sibling_rate"] = top3_rate(
-                dam_foals[(dam_foals["dam"] == x.dam) & ~own], p0, _PAIR_M
-            )
-            d["dam_race_rate"] = top3_rate(dams_raced[dams_raced["horse"] == x.dam], p0, _HORSE_M)
-        for name, (attr, table) in tables.items():
-            key = getattr(x, attr)
-            d[name] = float(table.get(key, np.nan)) if key is not None else np.nan
-        d["trainer_jockey_rate"] = (
-            float(pair_rates.get((x.trainer, x.jockey), np.nan)) if len(pair_rates) else np.nan
-        )
-        for col, name in (("sire", "sire_aptitude"), ("damsire", "damsire_aptitude")):
-            key, prof = getattr(x, col), profiles[col]
-            if key is not None and key in prof.index and cond in prof.columns:
-                d[name] = float(prof.at[key, cond])
-        d["jockey_h2h"] = h2h.get(x.jockey, np.nan) if x.jockey else np.nan
-        d["draw_bias"] = float(draw_rates.get(x.draw, np.nan)) if x.draw is not None else np.nan
-        attrs = _runner_attributes(x, last)
-        d["race_trend"] = _trend_score(attrs, RACE_TREND_ATTRS, edition_table)
-        d["course_trend"] = _trend_score(attrs, COURSE_TREND_ATTRS, reference_table)
-        out.append(d)
-    return out
-
-
-def last_finish_band(finish) -> str | None:
-    if finish is None or pd.isna(finish):
-        return None
-    return "1" if finish == 1 else "2-3" if finish <= 3 else "4-5" if finish <= 5 else "6+"
-
-
 def _runner_attributes(x: Runner, last_finish) -> dict:
     return {
         "draw": None if x.draw is None else str(int(x.draw)),
@@ -435,29 +331,6 @@ def _runner_attributes(x: Runner, last_finish) -> dict:
         "last_finish": last_finish_band(last_finish),
         "sire": x.sire,
     }
-
-
-def _as_key(v) -> str | None:
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return None
-    return str(int(v)) if isinstance(v, float) else str(v)
-
-
-def _trend_table(rows: pd.DataFrame, attributes) -> dict:
-    """attribute -> value -> shrunk top-3 rate minus the overall rate of ``rows``."""
-    if rows.empty:
-        return {}
-    base = float(rows["top3"].mean())
-    columns = {a: rows[a] for a in attributes if a != "last_finish"}
-    if "last_finish" in attributes:
-        columns["last_finish"] = rows["prev_finish"].map(last_finish_band)
-    table = {}
-    for attr, col in columns.items():
-        g = pd.DataFrame({"key": col.map(_as_key), "top3": rows["top3"]}).dropna()
-        agg = g.groupby("key")["top3"].agg(["sum", "size"])
-        rates = shrunk_rate(agg["sum"], agg["size"], base, _TREND_M) - base
-        table[attr] = dict(zip(agg.index, map(float, rates), strict=True))
-    return table
 
 
 def _card_trend_table(trends: dict) -> dict:
@@ -504,84 +377,30 @@ def workout_scores(card: RaceCard) -> list[float]:
 STYLE_FRONT = {"front": 1.0, "stalker": 0.5, "midfield": -0.25, "closer": -1.0}
 
 
-def _same_day_runners(card: RaceCard, history: pd.DataFrame | None) -> list[list[dict]]:
-    """Earlier races today on this course and surface, from the card or the history."""
-    races = [
-        race["runners"] for race in card.same_day_races if race["surface"] in (None, card.surface)
-    ]
-    if races or history is None or card.post_time is None:
-        return races
-    start = pd.Timestamp(f"{card.date} {card.post_time}")
-    today = history[
-        (history["race_date"] == pd.Timestamp(card.date))
-        & (history["course"] == card.course)
-        & (history["surface"] == card.surface)
-        & (history["post_time"] < start)
-    ]
-    out = []
-    for _, rows in today.groupby("race_id"):
-        out.append(
-            [
-                {
-                    "draw": None if pd.isna(r.draw) else r.draw,
-                    "early_position": None if pd.isna(r.early_position) else r.early_position,
-                    "finish": int(r.finish_position),
-                }
-                for r in rows.itertuples()
-            ]
-        )
-    return out
-
-
-def compute_factors(card: RaceCard, history: pd.DataFrame | None = None) -> pd.DataFrame:
+def compute_factors(card: RaceCard) -> pd.DataFrame:
     """Raw factor values, one row per runner in card order, plus ``n_runs``.
 
-    ``history`` must come from ``history.prepare_history``; only rows dated before the
-    race are used.
+    Reads the card only. To use a history table, fill the card from it first with
+    ``history.enrich_card``: training and race day then go through this same function.
     """
-    before = horse_rows = None
-    if history is not None:
-        # history is sorted by date, so "before the race" is a prefix
-        cut = history["race_date"].searchsorted(pd.Timestamp(card.date), side="left")
-        before = history.iloc[:cut]
-        ids = [x.horse_id for x in card.runners if x.horse_id is not None]
-        names = [x.horse for x in card.runners]
-        horse_rows = before[before["horse_id"].isin(ids) | before["horse"].isin(names)].copy()
-        horse_rows["speed_figure"] = speed_figures(horse_rows, before)
-        horse_rows["race_level"] = race_levels(horse_rows, before)
-    runs_list = []
-    for x in card.runners:
-        runs = _history_runs(x, horse_rows) if horse_rows is not None else pd.DataFrame()
-        runs_list.append(runs if not runs.empty else _past_runs_frame(x))
-    last_finishes = [None if r.empty else r["finish"].iloc[0] for r in runs_list]
-    history_stats = (
-        history_stat_factors(card, before, last_finishes) if before is not None else None
-    )
+    runs_list = [_past_runs_frame(x) for x in card.runners]
     workouts = workout_scores(card)
     card_trends = _card_trend_table(card.trends)
     card_course_trends = _card_trend_table(card.course_trends)
-
-    bias = estimate_bias(_same_day_runners(card, history))
+    bias = estimate_bias(
+        [r["runners"] for r in card.same_day_races if r["surface"] in (None, card.surface)]
+    )
 
     rows = []
     for i, (x, runs) in enumerate(zip(card.runners, runs_list, strict=True)):
-        row = {**runner_factors(card, x), **horse_factors(card, x, runs)}
-        card_stats = card_stat_factors(x)
-        if history_stats is not None:
-            # history first, card stats only where history has nothing
-            merged = {k: v for k, v in history_stats[i].items() if not pd.isna(v)}
-            row.update({**card_stats, **merged})
-        else:
-            row.update(card_stats)
-        if pd.isna(row.get("draw_bias", np.nan)) and x.draw is not None:
+        row = {**runner_factors(card, x), **horse_factors(card, x, runs), **card_stat_factors(x)}
+        if x.draw is not None:
             rec = card.course_draw_stats.get(str(int(x.draw)))
             if rec is not None:
                 row["draw_bias"] = float(shrunk_rate(rec.top3, rec.starts, _BASE_TOP3, _DRAW_M))
         attrs = _runner_attributes(x, x.past_runs[0].finish if x.past_runs else None)
-        if pd.isna(row.get("race_trend", np.nan)):
-            row["race_trend"] = _trend_score(attrs, RACE_TREND_ATTRS, card_trends)
-        if pd.isna(row.get("course_trend", np.nan)):
-            row["course_trend"] = _trend_score(attrs, COURSE_TREND_ATTRS, card_course_trends)
+        row["race_trend"] = _trend_score(attrs, RACE_TREND_ATTRS, card_trends)
+        row["course_trend"] = _trend_score(attrs, COURSE_TREND_ATTRS, card_course_trends)
         if bias is not None:
             front = row.get("early_speed")
             if front is None or pd.isna(front):

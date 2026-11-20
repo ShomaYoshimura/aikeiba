@@ -12,7 +12,7 @@ When a history table is available, statistics are computed from it and the
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 from datetime import date
 from pathlib import Path
 
@@ -69,6 +69,15 @@ COURSE_TREND_ATTRS = (
     "sire",
 )
 FINISH_BANDS = ("1", "2-3", "4-5", "6+")
+
+
+def last_finish_band(finish) -> str | None:
+    """Band of a finishing position, as used by the trend tables (None if unknown)."""
+    if finish is None or finish != finish:  # None or NaN
+        return None
+    return "1" if finish == 1 else "2-3" if finish <= 3 else "4-5" if finish <= 5 else "6+"
+
+
 PAST_EDITION_FIELDS = (
     "year",
     "winner",
@@ -447,6 +456,49 @@ def parse_race_card(data: dict) -> RaceCard:
     )
     check_point_in_time(card)
     return card
+
+
+_RACE_FIELDS = (
+    "name", "date", "course", "surface", "distance", "going", "grade", "post_time",
+    "cushion", "moisture", "weather", "wind_speed",
+)  # fmt: skip
+
+
+def _json_value(value):
+    if isinstance(value, Record):
+        return {"starts": value.starts, "top3": value.top3}
+    if isinstance(value, dict):
+        return {str(k): _json_value(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_value(v) for v in value]
+    if is_dataclass(value):
+        return {k: _json_value(v) for k, v in vars(value).items() if v is not None}
+    return value
+
+
+def card_to_dict(card: RaceCard) -> dict:
+    """The card as race-card JSON (the inverse of ``parse_race_card``), e.g. to save a card
+    filled from history (``history.enrich_card``) in the form the collector agents write."""
+    out = {
+        "race": {f: getattr(card, f) for f in _RACE_FIELDS if getattr(card, f) is not None},
+        "runners": [
+            {k: _json_value(v) for k, v in vars(r).items() if v is not None and v != () and v != {}}
+            for r in card.runners
+        ],
+    }
+    for name in (
+        "same_day_races",
+        "trends",
+        "course_trends",
+        "course_draw_stats",
+        "rotation_trends",
+        "past_editions",
+        "sources",
+    ):
+        value = getattr(card, name)
+        if value:
+            out[name] = _json_value(value)
+    return out
 
 
 def load_race_card(path: str | Path) -> RaceCard:

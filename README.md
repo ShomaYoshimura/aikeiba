@@ -96,9 +96,9 @@ npm run dev
 | `validation.py` | Walk-forward splits by year |
 | `backtest.py` | Model vs. market report (`aikeiba-backtest`) |
 | `racecard.py` | Race card JSON for one upcoming race |
-| `history.py` | History table of past races and its derived columns |
+| `history.py` | History table of past races; `enrich_card` fills a race card from it |
 | `conditions.py`, `stats.py` | Condition bins, similarity, shrunk rates, profile vectors, head-to-head |
-| `factors.py` | The 55 factors per runner, from history or from the card |
+| `factors.py` | The 55 factors per runner, from the race card only |
 | `history_metrics.py` | Point-in-time speed figures and race levels from the history |
 | `bias.py` | Today's track bias from earlier races on the same day |
 | `model.py` | Within-race standardization and the linear Plackett-Luce model |

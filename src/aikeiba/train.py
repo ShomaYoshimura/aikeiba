@@ -1,8 +1,9 @@
 """Fit the factor weights on past graded races and check them walk-forward.
 
-Every past graded race becomes one training example: its factors are computed as
-they would have been on race day (history before that date only) and its first
-three finishers are the target. Statistics inside the factors use all races; only
+Every past graded race becomes one training example: its card is filled from the
+history before that date (``history.enrich_card``) and its factors are computed by the
+same ``factors.compute_factors`` that race day uses; its first three finishers are the
+target. Statistics inside the factors use all races; only
 the examples are restricted to graded races, the prediction target.
 """
 
@@ -16,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from aikeiba.factors import FACTOR_NAMES, FACTORS, compute_factors
-from aikeiba.history import card_from_history, prepare_history
+from aikeiba.history import card_from_history, enrich_card, prepare_history
 from aikeiba.metrics import expected_calibration_error
 from aikeiba.model import ModelWeights, fit_plackett_luce, prior_weights, standardize
 from aikeiba.schema import GRADED
@@ -44,8 +45,8 @@ def build_examples(
     for race_id, rows in targets.groupby("race_id", sort=False):
         if len(rows) < TOP_K + 1:
             continue
-        card = card_from_history(rows)
-        x = standardize(compute_factors(card, h))
+        card = enrich_card(card_from_history(rows), h)  # the race-day path, from history
+        x = standardize(compute_factors(card))
         order = np.argsort(rows["finish_position"].to_numpy(), kind="stable")
         odds = rows["win_odds"].to_numpy(dtype=float)
         log_market = None

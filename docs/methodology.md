@@ -19,6 +19,20 @@ when a decision changes.
    variant, adjusted for weight carried; a race's level is how its other runners did later.
    With 55 factors and about 130 graded races a year, new factors must earn their place:
    each one is kept only if the walk-forward scores improve with it.
+
+   **One path for training and race day.** Factors are computed from the race card only.
+   A history table first fills the card's fields (`history.enrich_card`: past runs, entity
+   records as raw counts, trends, gate records, earlier races of the day), in the same form
+   the collector agents write, so a fitted weight means the same thing whether the card came
+   from history (training, `--history`) or from public sources. Every rate is shrunk toward the
+   same prior (a 0.2 top-3 rate, about the JRA average). Before this, history statistics were
+   shrunk toward the history's own rates (for sires, per condition bin), so the same horse could
+   get different factor values in training and on race day.
+
+   Differences that remain between training and race day: training uses final odds while a
+   card collected the evening before has earlier odds; agent-collected cards usually hold
+   fewer past runs and records than history; and the race-day probabilities come from the
+   simulation with shocks (step 5), while the walk-forward scores the model without them.
 2. **Compare within the race.** Each factor is z-scored within the field. A factor says how
    much better than *this field* a runner is; unknown values count as the field average.
 3. **Score.** A linear model turns the factor vector into a log-strength (`model.py`). Linear

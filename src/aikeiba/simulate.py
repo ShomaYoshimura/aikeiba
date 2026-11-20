@@ -268,6 +268,7 @@ def simulate_race(
     params = params or ShockParams()
     rng = np.random.default_rng(seed)
     evaluation = evaluate_card(card, history, weights)
+    card = evaluation.card  # filled from history when given
     log_s = evaluation.log_s
     pos_counts = np.zeros((3, n))
     quinella = np.zeros(n * n)

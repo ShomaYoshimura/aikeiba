@@ -4,9 +4,9 @@ import pytest
 
 from aikeiba.conditions import condition_bin, race_name_key, similarity
 from aikeiba.factors import FACTOR_NAMES, compute_factors
-from aikeiba.history import card_from_history, prepare_history
+from aikeiba.history import card_from_history, enrich_card, prepare_history
 from aikeiba.model import standardize
-from aikeiba.racecard import parse_race_card
+from aikeiba.racecard import card_to_dict, parse_race_card
 from aikeiba.stats import head_to_head, profile_matrix, shrunk_rate
 
 
@@ -69,12 +69,15 @@ def test_history_prep_and_entity_stats():
 def test_factors_from_history_use_only_earlier_races():
     h = small_history()
     card = card_from_history(h[h["race_id"] == "R5"])
-    raw = compute_factors(card, h)
+    raw = compute_factors(enrich_card(card, h))
     assert list(raw.columns) == [*FACTOR_NAMES, "n_runs"]
     assert raw.loc[0, "jockey_h2h"] > raw.loc[3, "jockey_h2h"]
-    assert raw.loc[0, "sire_aptitude"] > raw.loc[1, "sire_aptitude"]
+    # sire records count only races R0-R4 under today's condition: S1 5/5, S2 10/15, shrunk
+    # toward the card path's prior (0.2, 30 pseudo-runs) like a record a collector wrote
+    assert raw.loc[0, "sire_aptitude"] == pytest.approx(shrunk_rate(5, 5, 0.2, 30))
+    assert raw.loc[1, "sire_aptitude"] == pytest.approx(shrunk_rate(10, 15, 0.2, 30))
     # a race on the first day has no history at all
-    first = compute_factors(card_from_history(h[h["race_id"] == "R0"]), h)
+    first = compute_factors(enrich_card(card_from_history(h[h["race_id"] == "R0"]), h))
     assert first["jockey_h2h"].isna().all()
 
 
@@ -154,7 +157,7 @@ def test_course_trend_uses_same_course_and_distance_only():
         others.append(other)
     h = prepare_history(pd.concat([raw, *others]))
     card = card_from_history(h[h["race_id"] == "R5"])
-    factors = compute_factors(card, h)
+    factors = compute_factors(enrich_card(card, h))
     assert factors.loc[0, "course_trend"] > factors.loc[1, "course_trend"]  # S1 at Tokyo 1200
 
 
@@ -204,3 +207,42 @@ def test_course_trends_reject_unknown_attributes():
     }
     with pytest.raises(ValueError, match="unknown attribute 'draw' in course_trends"):
         parse_race_card({**base, "course_trends": {"draw": {"1": {"starts": 1, "top3": 0}}}})
+
+
+def test_training_and_race_day_share_one_factor_path():
+    """A card filled from history, written as race-card JSON and read back like a card from
+    the collector agents, gives exactly the factors training computes."""
+    import json
+
+    from aikeiba.synthetic import generate_history
+    from aikeiba.train import build_examples
+
+    h = prepare_history(
+        generate_history(
+            n_years=2, days_per_year=24, races_per_day=8, n_horses=800, graded_per_year=12, seed=3
+        )
+    )
+    example = build_examples(h)[0]
+    rows = h[h["race_id"] == example.race_id]
+    card = enrich_card(card_from_history(rows), h)
+    assert any(x.past_runs for x in card.runners) and any(x.stats for x in card.runners)
+    assert card.trends or card.course_trends or card.course_draw_stats
+    round_trip = parse_race_card(json.loads(json.dumps(card_to_dict(card), ensure_ascii=False)))
+    np.testing.assert_array_equal(
+        compute_factors(round_trip).to_numpy(), compute_factors(card).to_numpy()
+    )
+    np.testing.assert_array_equal(standardize(compute_factors(round_trip)), example.x)
+
+
+def test_enrich_keeps_card_values_where_history_has_none():
+    h = small_history()
+    base = card_from_history(h[h["race_id"] == "R5"])
+    from dataclasses import replace
+
+    from aikeiba.racecard import Record
+
+    first = replace(base.runners[0], stats={"owner": Record(50, 25)})
+    card = enrich_card(replace(base, runners=(first, *base.runners[1:])), h)
+    assert card.runners[0].stats["owner"] == Record(50, 25)  # no owner column in history
+    assert card.runners[0].stats["jockey_year"] == Record(5, 5)  # J1 won R0-R4
+    assert all(p.date < "2025-06-10" for x in card.runners for p in x.past_runs)

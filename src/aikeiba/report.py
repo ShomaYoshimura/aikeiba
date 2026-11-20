@@ -75,6 +75,7 @@ def analyze(
     uncertainty_params: UncertaintyParams | None = None,
 ) -> dict:
     sim = simulate_race(card, n_sims, seed, history=history, weights=weights)
+    card = sim.card  # filled from history when given, so the risk sheet sees the same runs
     ev = sim.evaluation
     style = style_scores(card, ev.raw["early_speed"].to_numpy())
     risks = assess_risks(card, ev.raw, style, risk_params)

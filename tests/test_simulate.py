@@ -135,3 +135,20 @@ def test_cli_writes_json(tmp_path, capsys):
     assert data["n_sims"] == 20000
     printed = capsys.readouterr().out
     assert "◎" in printed and "unvalidated" in printed
+
+
+def test_history_fills_the_card_used_by_the_result():
+    from aikeiba.history import card_from_history, prepare_history
+    from aikeiba.synthetic import generate_history
+
+    h = prepare_history(
+        generate_history(
+            n_years=2, days_per_year=24, races_per_day=8, n_horses=800, graded_per_year=12, seed=3
+        )
+    )
+    last_day = h[h["race_date"] == h["race_date"].max()]
+    card = card_from_history(last_day[last_day["race_id"] == last_day["race_id"].iloc[0]])
+    assert not any(x.past_runs for x in card.runners)
+    result = simulate_race(card, 2_000, seed=0, history=h)
+    assert any(x.past_runs for x in result.card.runners)
+    assert result.evaluation.card is result.card
