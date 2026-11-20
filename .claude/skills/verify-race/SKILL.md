@@ -18,6 +18,10 @@ prediction is saved.
 - Cutoff: the evening before race day (23:59 JST), unless the user sets another. Odds and
   horse weights from race day are then not used, and neither are today's track bias
   (`same_day_races`) and paddock reports; say so in the report.
+- Pages show statistics as of today, which include this race and later ones. Tell the
+  collectors the cutoff is in the past so they leave out totals they cannot restrict to dates
+  before it. `aikeiba-card merge` rejects past runs on or after the race day. Treat the log as a
+  check of the pipeline, not as unbiased evidence (`docs/methodology.md`).
 - If you have already seen this race's result (in this conversation, a search snippet, or
   prior knowledge), say so to the user up front, and rely even more strictly on the agents
   and on cited sources for every value.

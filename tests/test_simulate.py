@@ -41,6 +41,23 @@ def test_rejects_invalid_cards():
         minimal_card(win_odds=[2.0, 3.0])
 
 
+def test_rejects_data_from_after_the_race():
+    run = {"date": "2025-12-01", "finish": 2, "field_size": 16}
+    ok = [[run]] * 3
+    minimal_card(past_runs=ok)  # earlier runs are fine
+    with pytest.raises(ValueError, match="not before the race"):
+        minimal_card(past_runs=[[{**run, "date": "2026-01-01"}], [run], [run]])  # race day
+    with pytest.raises(ValueError, match="not before the race"):
+        minimal_card(past_runs=[[{**run, "date": "2026-02-01"}], [run], [run]])
+    with pytest.raises(ValueError, match="outside a field"):
+        minimal_card(past_runs=[[{**run, "finish": 17}], [run], [run]])
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        minimal_card(past_runs=[[{**run, "date": "last week"}], [run], [run]])
+    workout = {"date": "2026-01-02", "course": "坂路"}
+    with pytest.raises(ValueError, match="workout"):
+        minimal_card(workouts=[[workout], [], []])
+
+
 def test_without_shocks_win_rates_match_softmax_of_strengths(card):
     result = simulate_race(card, 200_000, seed=0, shocks=False)
     p = np.exp(log_strengths(card))
@@ -55,7 +72,8 @@ def test_market_only_card_uses_market_strengths():
 
 def runs(*finishes):
     return [
-        {"date": f"2026-0{i + 1}-01", "finish": f, "field_size": 12} for i, f in enumerate(finishes)
+        {"date": f"2025-{12 - i:02d}-01", "finish": f, "field_size": 12}  # most recent first
+        for i, f in enumerate(finishes)
     ]
 
 
@@ -112,5 +130,25 @@ def test_cli_writes_json(tmp_path, capsys):
     assert [p["mark"] for p in data["picks"]] == ["◎", "○", "▲"]
     assert data["picks"][0]["reasons"]
     assert data["weights"] == "prior" and data["uses_market"]
+    assert data["validated"] is False
+    assert all(p["stake"] is None for p in data["strategies"]["value"])  # prior: no stakes
     assert data["n_sims"] == 20000
-    assert "◎" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "◎" in printed and "unvalidated" in printed
+
+
+def test_history_fills_the_card_used_by_the_result():
+    from aikeiba.history import card_from_history, prepare_history
+    from aikeiba.synthetic import generate_history
+
+    h = prepare_history(
+        generate_history(
+            n_years=2, days_per_year=24, races_per_day=8, n_horses=800, graded_per_year=12, seed=3
+        )
+    )
+    last_day = h[h["race_date"] == h["race_date"].max()]
+    card = card_from_history(last_day[last_day["race_id"] == last_day["race_id"].iloc[0]])
+    assert not any(x.past_runs for x in card.runners)
+    result = simulate_race(card, 2_000, seed=0, history=h)
+    assert any(x.past_runs for x in result.card.runners)
+    assert result.evaluation.card is result.card

@@ -6,7 +6,9 @@
 - balanced (両立): the same order, but skipping runners the market clearly overrates
   (expected value p x odds below ``balanced_min_ev``). Without odds it equals hit.
 - value (回収重視): the runners with the highest expected value above ``value_min_ev``,
-  with a fractional-Kelly stake. Needs odds; may pick fewer than three.
+  with a fractional-Kelly stake. Needs odds; may pick fewer than three. Stakes are given
+  only for validated weights (``stakes=True``, see ``ModelWeights.validated``): an expected
+  value from weights that have not beaten the market is not a reason to bet.
 
 The thresholds are initial choices; tune them on the prediction log.
 """
@@ -67,8 +69,12 @@ def value_picks(ev, min_ev: float) -> list[int]:
     return candidates[:3]
 
 
-def make_picks(win, top2, top3, odds, params: StrategyParams | None = None) -> dict:
-    """Strategy name -> list of (mark, runner index, expected value or None, stake or None)."""
+def make_picks(
+    win, top2, top3, odds, params: StrategyParams | None = None, *, stakes: bool = True
+) -> dict:
+    """Strategy name -> list of (mark, runner index, expected value or None, stake or None).
+
+    ``stakes=False`` leaves every stake None (use it for unvalidated weights)."""
     params = params or StrategyParams()
     ev = expected_values(win, odds)
     out = {}
@@ -82,7 +88,9 @@ def make_picks(win, top2, top3, odds, params: StrategyParams | None = None) -> d
                 mark,
                 i,
                 None if ev is None else float(ev[i]),
-                kelly_stake(win[i], odds[i], params.kelly_fraction) if name == "value" else None,
+                kelly_stake(win[i], odds[i], params.kelly_fraction)
+                if stakes and name == "value"
+                else None,
             )
             for mark, i in zip(MARKS, idx, strict=False)
         ]

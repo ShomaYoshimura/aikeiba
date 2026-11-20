@@ -7,12 +7,26 @@ races strictly before the target race's date are ever used for a prediction.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 
 from aikeiba.conditions import GOING_GROUP, condition_bin, race_name_key
-from aikeiba.racecard import GOING_ALIASES, SURFACE_ALIASES, RaceCard, Runner
-from aikeiba.schema import FINISH_POSITION, HORSE_ID, POST_TIME, RACE_DATE, RACE_ID
+from aikeiba.history_metrics import race_levels, speed_figures
+from aikeiba.racecard import (
+    COURSE_TREND_ATTRS,
+    EDITION_TREND_ATTRS,
+    GOING_ALIASES,
+    SURFACE_ALIASES,
+    PastRun,
+    RaceCard,
+    Record,
+    Runner,
+    last_finish_band,
+)
+from aikeiba.schema import FINISH_POSITION, GRADED, HORSE_ID, POST_TIME, RACE_DATE, RACE_ID
+from aikeiba.stats import head_to_head
 
 REQUIRED = (
     RACE_ID,
@@ -151,4 +165,206 @@ def card_from_history(rows: pd.DataFrame) -> RaceCard:
         moisture=opt(first, "moisture"),
         weather=opt(first, "weather"),
         runners=runners,
+    )
+
+
+# --- history -> race card -------------------------------------------------------------
+# Training and race day share one path: history fills the card's own fields (the ones the
+# collector agents fill from public sources), and factors are computed from the card only.
+
+EDITION_YEARS = 10  # past editions of the race used for ``trends``
+REFERENCE_YEARS = 5  # reference races at the same course and distance for ``course_trends``
+_RUN_FIELDS = (
+    "date", "finish", "field_size", "race_name", "course", "surface", "distance", "going",
+    "grade", "jockey", "last3f", "time", "margin", "early_position", "speed_figure",
+    "race_level", "cushion", "trouble", "popularity", "weight_carried",
+)  # fmt: skip
+_HISTORY_COLUMN = {"date": RACE_DATE, "finish": FINISH_POSITION}
+_INT_FIELDS = {"finish", "field_size", "distance", "early_position", "popularity"}
+
+
+def _plain(value, as_int: bool = False):
+    """A history cell as a plain Python value for a card field (NaN -> None)."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, np.generic):
+        value = value.item()
+    return int(value) if as_int else value
+
+
+def _past_runs(rows: pd.DataFrame) -> tuple[PastRun, ...]:
+    out = []
+    for _, r in rows.sort_values(RACE_DATE, ascending=False, kind="stable").iterrows():
+        run = {f: _plain(r[_HISTORY_COLUMN.get(f, f)], f in _INT_FIELDS) for f in _RUN_FIELDS}
+        if run["trouble"] is not None:
+            run["trouble"] = bool(run["trouble"])
+        out.append(PastRun(**run))
+    return tuple(out)
+
+
+def _counts(rows: pd.DataFrame, keys) -> dict:
+    """Group key (a value, or a tuple for several keys) -> Record(starts, top3)."""
+    if rows.empty:
+        return {}
+    g = rows.groupby(keys, observed=True)["top3"].agg(["size", "sum"])
+    return {k: Record(int(n), int(t)) for k, (n, t) in zip(g.index, g.to_numpy(), strict=True)}
+
+
+def _trend_key(value) -> str | None:
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return None
+    return str(int(value)) if isinstance(value, float | np.floating) else str(value)
+
+
+def _trend_records(rows: pd.DataFrame, attributes) -> dict:
+    """attribute -> value -> Record, the shape of a card's ``trends`` / ``course_trends``."""
+    out = {}
+    for attr in attributes:
+        if attr == "last_finish":
+            keys = rows["prev_finish"].map(last_finish_band)
+        else:
+            keys = rows[attr].map(_trend_key)
+        g = pd.DataFrame({"key": keys, "top3": rows["top3"]}).dropna()
+        if not g.empty:
+            out[attr] = _counts(g, "key")
+    return out
+
+
+def _same_day_races(card: RaceCard, before_today: pd.DataFrame) -> tuple:
+    """Earlier races today on this course and surface (needs the card's post time)."""
+    if card.post_time is None:
+        return ()
+    start = pd.Timestamp(f"{card.date} {card.post_time}")
+    today = before_today[
+        (before_today["course"] == card.course)
+        & (before_today["surface"] == card.surface)
+        & (before_today[POST_TIME] < start)
+    ]
+    return tuple(
+        {
+            "surface": card.surface,
+            "distance": _plain(rows["distance"].iloc[0], True),
+            "runners": [
+                {
+                    "draw": _plain(r.draw, True),
+                    "early_position": _plain(r.early_position, True),
+                    "finish": int(r.finish_position),
+                }
+                for r in rows.itertuples()
+            ],
+        }
+        for _, rows in today.groupby(RACE_ID, sort=False)
+    )
+
+
+def enrich_card(card: RaceCard, history: pd.DataFrame) -> RaceCard:
+    """The card with its fields filled from history, as known before the race.
+
+    Fills each runner's ``past_runs`` (with speed figures and race levels computed as of
+    the race date) and ``stats``, and the card's ``trends``, ``course_trends``,
+    ``course_draw_stats`` and ``same_day_races``: the same fields, in the same form, that
+    the collector agents fill from public sources. Only rows dated before the race day are
+    used (plus earlier races on the race day itself for ``same_day_races``). Where history
+    has nothing, the card's own value is kept. ``factors.compute_factors`` then reads the
+    card only, so training (``train.build_examples``) and race day use one path.
+    """
+    if "cond_bin" not in history.columns:
+        history = prepare_history(history)
+
+    today = pd.Timestamp(card.date)
+    # history is sorted by date, so "before the race day" is a prefix
+    cut = history[RACE_DATE].searchsorted(today, side="left")
+    before = history.iloc[:cut]
+    same_day = card.same_day_races
+    if not same_day:
+        end = history[RACE_DATE].searchsorted(today, side="right")
+        same_day = _same_day_races(card, history.iloc[cut:end])
+    if before.empty:
+        return replace(card, same_day_races=same_day)
+
+    r = card.runners
+    ids = [x.horse_id for x in r if x.horse_id is not None]
+    horse_rows = before[before[HORSE_ID].isin(ids) | before["horse"].isin([x.horse for x in r])]
+    horse_rows = horse_rows.assign(
+        speed_figure=speed_figures(horse_rows, before), race_level=race_levels(horse_rows, before)
+    )
+
+    recent3 = before[before[RACE_DATE] >= today - pd.DateOffset(years=3)]
+    recent5 = before[before[RACE_DATE] >= today - pd.DateOffset(years=5)]
+    graded3 = recent3[recent3["grade"].isin(GRADED)]
+    course = before[(before["course"] == card.course) & (before["surface"] == card.surface)]
+    same_track = course[course["distance"] == card.distance]
+    cond = condition_bin(card.surface, card.distance, card.going)
+
+    def entity(rows, col):
+        values = {getattr(x, col) for x in r} - {None}
+        return _counts(rows[rows[col].isin(values)], col)
+
+    tables = {
+        "jockey_year": ("jockey", entity(before[before["year"] == today.year], "jockey")),
+        "jockey_graded": ("jockey", entity(graded3, "jockey")),
+        "jockey_course": ("jockey", entity(course, "jockey")),
+        "trainer": ("trainer", entity(recent3, "trainer")),
+        "trainer_graded": ("trainer", entity(graded3, "trainer")),
+        "owner": ("owner", entity(recent3, "owner")),
+        "breeder": ("breeder", entity(recent5, "breeder")),
+        "region": ("region", entity(recent5, "region")),
+        "sire_condition": ("sire", entity(before[before["cond_bin"] == cond], "sire")),
+        "damsire_condition": ("damsire", entity(before[before["cond_bin"] == cond], "damsire")),
+    }
+    trainers = {x.trainer for x in r} - {None}
+    jockeys = [x.jockey for x in r if x.jockey is not None]
+    pairs = _counts(
+        before[before["trainer"].isin(trainers) & before["jockey"].isin(jockeys)],
+        ["trainer", "jockey"],
+    )
+    h2h = head_to_head(recent3, "jockey", jockeys) if jockeys else {}
+    dams = {x.dam for x in r} - {None}
+    foals = before[before["dam"].isin(dams)]
+    dams_raced = _counts(before[before["horse"].isin(dams)], "horse")
+
+    runners = []
+    for x in r:
+        if x.horse_id is not None:
+            own_rows = horse_rows[horse_rows[HORSE_ID] == x.horse_id]
+        else:
+            own_rows = horse_rows[horse_rows["horse"] == x.horse]
+        stats = {}
+        for key, (attr, table) in tables.items():
+            value = getattr(x, attr)
+            if value is not None and value in table:
+                stats[key] = table[value]
+        if (x.trainer, x.jockey) in pairs:
+            stats["trainer_jockey"] = pairs[(x.trainer, x.jockey)]
+        if x.jockey is not None and not pd.isna(h2h.get(x.jockey, np.nan)):
+            stats["jockey_h2h"] = float(h2h[x.jockey])
+        if x.dam is not None:
+            own = (foals[HORSE_ID] == x.horse_id) | (foals["horse"] == x.horse)
+            siblings = foals[(foals["dam"] == x.dam) & ~own]
+            if not siblings.empty:
+                stats["siblings"] = Record(len(siblings), int(siblings["top3"].sum()))
+            if x.dam in dams_raced:
+                stats["dam_race"] = dams_raced[x.dam]
+        runners.append(
+            replace(
+                x,
+                past_runs=_past_runs(own_rows) if not own_rows.empty else x.past_runs,
+                stats={**x.stats, **stats},
+            )
+        )
+
+    editions = before[before["name_key"] == race_name_key(card.name)]
+    editions = editions[editions[RACE_DATE] >= today - pd.DateOffset(years=EDITION_YEARS)]
+    reference = same_track[same_track[RACE_DATE] >= today - pd.DateOffset(years=REFERENCE_YEARS)]
+    gates = _counts(same_track.dropna(subset=["draw"]), "draw")
+    draws = {str(int(k)): rec for k, rec in gates.items()}
+    return replace(
+        card,
+        runners=tuple(runners),
+        trends=_trend_records(editions, EDITION_TREND_ATTRS) or card.trends,
+        course_trends=_trend_records(reference, COURSE_TREND_ATTRS) or card.course_trends,
+        course_draw_stats=draws or card.course_draw_stats,
+        same_day_races=same_day,
     )

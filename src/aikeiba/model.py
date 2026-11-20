@@ -56,6 +56,14 @@ class ModelWeights:
     meta: dict = field(default_factory=dict)
 
     @property
+    def validated(self) -> bool:
+        """Fitted, and walk-forward evidence that combined with the market they beat the
+        market alone (written by aikeiba-train). Only then are stakes given."""
+        return self.fitted and bool(
+            self.meta.get("walk_forward_vs_market", {}).get("beats_market", False)
+        )
+
+    @property
     def features(self) -> tuple[str, ...]:
         return tuple(self.fundamental)
 

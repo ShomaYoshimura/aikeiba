@@ -12,7 +12,8 @@ When a history table is available, statistics are computed from it and the
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
+from datetime import date
 from pathlib import Path
 
 from aikeiba.schema import GRADED
@@ -68,6 +69,15 @@ COURSE_TREND_ATTRS = (
     "sire",
 )
 FINISH_BANDS = ("1", "2-3", "4-5", "6+")
+
+
+def last_finish_band(finish) -> str | None:
+    """Band of a finishing position, as used by the trend tables (None if unknown)."""
+    if finish is None or finish != finish:  # None or NaN
+        return None
+    return "1" if finish == 1 else "2-3" if finish <= 3 else "4-5" if finish <= 5 else "6+"
+
+
 PAST_EDITION_FIELDS = (
     "year",
     "winner",
@@ -346,6 +356,38 @@ def _trend_records(d: dict | None, where: str, allowed: tuple[str, ...]) -> dict
     return out
 
 
+def _date(value, where: str) -> date:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError as e:
+        raise ValueError(f"{where} must be a YYYY-MM-DD date, got {value!r}") from e
+
+
+def check_point_in_time(card: RaceCard) -> None:
+    """Reject data that cannot have been known before the race.
+
+    Past runs must be dated before the race day (the race itself or a later run in
+    ``past_runs`` means a collector read a page updated after the race), and workouts
+    no later than the race day. Finishing positions must fit the field size.
+    """
+    race_day = _date(card.date, "race date")
+    for r in card.runners:
+        for p in r.past_runs:
+            if _date(p.date, f"past_runs date of {r.horse}") >= race_day:
+                raise ValueError(
+                    f"past run of {r.horse} on {p.date} is not before the race ({card.date}): "
+                    "the source was read after the race; drop that run"
+                )
+            if p.field_size is not None and not 1 <= p.finish <= p.field_size:
+                raise ValueError(
+                    f"past run of {r.horse} on {p.date}: finish {p.finish} "
+                    f"outside a field of {p.field_size}"
+                )
+        for w in r.workouts:
+            if _date(w.date, f"workout date of {r.horse}") > race_day:
+                raise ValueError(f"workout of {r.horse} on {w.date} is after the race")
+
+
 def _rotation_trends(d: dict | None) -> dict:
     out = {}
     for race_name, bands in (d or {}).items():
@@ -390,7 +432,7 @@ def parse_race_card(data: dict) -> RaceCard:
         str(g): _record(rec, f"course_draw_stats.{g}")
         for g, rec in (data.get("course_draw_stats") or {}).items()
     }
-    return RaceCard(
+    card = RaceCard(
         name=race["name"],
         date=race["date"],
         course=race["course"],
@@ -412,6 +454,51 @@ def parse_race_card(data: dict) -> RaceCard:
         past_editions=_past_editions(data.get("past_editions")),
         sources=tuple(data.get("sources") or ()),
     )
+    check_point_in_time(card)
+    return card
+
+
+_RACE_FIELDS = (
+    "name", "date", "course", "surface", "distance", "going", "grade", "post_time",
+    "cushion", "moisture", "weather", "wind_speed",
+)  # fmt: skip
+
+
+def _json_value(value):
+    if isinstance(value, Record):
+        return {"starts": value.starts, "top3": value.top3}
+    if isinstance(value, dict):
+        return {str(k): _json_value(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_value(v) for v in value]
+    if is_dataclass(value):
+        return {k: _json_value(v) for k, v in vars(value).items() if v is not None}
+    return value
+
+
+def card_to_dict(card: RaceCard) -> dict:
+    """The card as race-card JSON (the inverse of ``parse_race_card``), e.g. to save a card
+    filled from history (``history.enrich_card``) in the form the collector agents write."""
+    out = {
+        "race": {f: getattr(card, f) for f in _RACE_FIELDS if getattr(card, f) is not None},
+        "runners": [
+            {k: _json_value(v) for k, v in vars(r).items() if v is not None and v != () and v != {}}
+            for r in card.runners
+        ],
+    }
+    for name in (
+        "same_day_races",
+        "trends",
+        "course_trends",
+        "course_draw_stats",
+        "rotation_trends",
+        "past_editions",
+        "sources",
+    ):
+        value = getattr(card, name)
+        if value:
+            out[name] = _json_value(value)
+    return out
 
 
 def load_race_card(path: str | Path) -> RaceCard:

@@ -13,6 +13,9 @@ data. Real JRA data is not connected yet. See [ROADMAP.md](ROADMAP.md) for what 
 
 ## Quick start
 
+The full guide (setup, network access and terms review, predicting a race, checking past
+races, fitting weights, data sources and known issues) is [docs/usage.md](docs/usage.md).
+
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.11.
 
 ```bash
@@ -96,9 +99,9 @@ npm run dev
 | `validation.py` | Walk-forward splits by year |
 | `backtest.py` | Model vs. market report (`aikeiba-backtest`) |
 | `racecard.py` | Race card JSON for one upcoming race |
-| `history.py` | History table of past races and its derived columns |
+| `history.py` | History table of past races; `enrich_card` fills a race card from it |
 | `conditions.py`, `stats.py` | Condition bins, similarity, shrunk rates, profile vectors, head-to-head |
-| `factors.py` | The 55 factors per runner, from history or from the card |
+| `factors.py` | The 55 factors per runner, from the race card only |
 | `history_metrics.py` | Point-in-time speed figures and race levels from the history |
 | `bias.py` | Today's track bias from earlier races on the same day |
 | `model.py` | Within-race standardization and the linear Plackett-Luce model |
@@ -113,7 +116,7 @@ npm run dev
 ## Design principles
 
 - **No future leakage.** Every feature carries the time it became available, and tests enforce it.
-- **Train on all races, report on graded races.** Graded races alone (about 60 a year) are too
+- **Train on all races, report on graded races.** Graded races alone (about 130 a year) are too
   few to train on.
 - **The market is the benchmark.** Random guessing is not a meaningful baseline; odds are.
 - **Baseline first.** Methods from the blueprint are added one at a time and kept only if the

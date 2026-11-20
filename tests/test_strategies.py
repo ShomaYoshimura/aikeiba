@@ -26,6 +26,9 @@ def test_balanced_skips_overrated_runners_and_value_ranks_by_ev():
     assert numbers(picks["balanced"])[0] == 1  # favourite skipped
     assert numbers(picks["value"]) == [4, 1, 2]
     assert all(stake > 0 for _, _, _, stake in picks["value"])
+    unvalidated = make_picks(WIN, TOP2, TOP3, odds, stakes=False)
+    assert numbers(unvalidated["value"]) == [4, 1, 2]
+    assert all(stake is None for _, _, _, stake in unvalidated["value"])
 
 
 def test_kelly_stake():

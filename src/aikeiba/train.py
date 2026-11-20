@@ -1,8 +1,9 @@
 """Fit the factor weights on past graded races and check them walk-forward.
 
-Every past graded race becomes one training example: its factors are computed as
-they would have been on race day (history before that date only) and its first
-three finishers are the target. Statistics inside the factors use all races; only
+Every past graded race becomes one training example: its card is filled from the
+history before that date (``history.enrich_card``) and its factors are computed by the
+same ``factors.compute_factors`` that race day uses; its first three finishers are the
+target. Statistics inside the factors use all races; only
 the examples are restricted to graded races, the prediction target.
 """
 
@@ -16,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from aikeiba.factors import FACTOR_NAMES, FACTORS, compute_factors
-from aikeiba.history import card_from_history, prepare_history
+from aikeiba.history import card_from_history, enrich_card, prepare_history
 from aikeiba.metrics import expected_calibration_error
 from aikeiba.model import ModelWeights, fit_plackett_luce, prior_weights, standardize
 from aikeiba.schema import GRADED
@@ -44,8 +45,8 @@ def build_examples(
     for race_id, rows in targets.groupby("race_id", sort=False):
         if len(rows) < TOP_K + 1:
             continue
-        card = card_from_history(rows)
-        x = standardize(compute_factors(card, h))
+        card = enrich_card(card_from_history(rows), h)  # the race-day path, from history
+        x = standardize(compute_factors(card))
         order = np.argsort(rows["finish_position"].to_numpy(), kind="stable")
         odds = rows["win_odds"].to_numpy(dtype=float)
         log_market = None
@@ -129,6 +130,7 @@ def walk_forward(
     Predictors: fitted and prior weights without odds, fitted weights combined with the
     market, and the market alone (its top pick is the favourite)."""
     rows = []
+    diffs = []  # per race: log loss of fitted+market minus that of the market
     prior = prior_weights()
     for year in test_years:
         train = [e for e in examples if e.date.year < year]
@@ -139,6 +141,11 @@ def walk_forward(
         with_odds = [e for e in test if e.log_market is not None]
         predictors = [("fitted", test, fitted, False), ("prior", test, prior, False)]
         if with_odds:
+            diffs += [
+                np.log(_probs(e, None, True)[e.order[0]])
+                - np.log(_probs(e, fitted, True)[e.order[0]])
+                for e in with_odds
+            ]
             predictors += [
                 ("fitted+market", with_odds, fitted, True),
                 ("market", with_odds, None, True),
@@ -162,7 +169,27 @@ def walk_forward(
                 "log_loss": float(np.mean([np.log(len(e.x)) for e in test])),
             }
         )
-    return pd.DataFrame(rows)
+    report = pd.DataFrame(rows)
+    report.attrs["market_diffs"] = np.asarray(diffs, dtype=float)
+    return report
+
+
+def market_comparison(diffs: np.ndarray) -> dict:
+    """Whether fitted+market beat the market alone, from per-race log-loss differences.
+
+    ``beats_market`` needs the 95% upper bound of the mean difference below zero, so a
+    lucky few races do not count as evidence."""
+    n = len(diffs)
+    if n < 2:
+        return {"n_races": n, "beats_market": False}
+    mean = float(np.mean(diffs))
+    se = float(np.std(diffs, ddof=1) / np.sqrt(n))
+    return {
+        "n_races": n,
+        "mean_log_loss_diff": mean,
+        "upper_95": mean + 1.96 * se,
+        "beats_market": mean + 1.96 * se < 0,
+    }
 
 
 def weights_table(weights: ModelWeights) -> pd.DataFrame:
@@ -205,7 +232,17 @@ def main(argv=None) -> None:
         if not report.empty:
             print("Walk-forward (log_loss and ece: lower is better; top_pick_*: higher is better):")
             print(report.to_string(index=False), "\n")
+        comparison = market_comparison(report.attrs.get("market_diffs", np.array([])))
         weights = fit_weights(examples, l2=args.l2)
+        weights.meta["walk_forward_vs_market"] = comparison
+        verdict = "beats" if comparison["beats_market"] else "does NOT beat"
+        print(
+            f"fitted+market {verdict} the market walk-forward "
+            f"({comparison['n_races']} races, mean log-loss difference "
+            f"{comparison.get('mean_log_loss_diff', float('nan')):+.4f}, "
+            f"95% upper bound {comparison.get('upper_95', float('nan')):+.4f}); "
+            f"stakes are given only when it beats it\n"
+        )
         print(f"market combination: alpha={weights.alpha:.3f} beta={weights.beta:.3f}")
         print(weights_table(weights).to_string(index=False))
 

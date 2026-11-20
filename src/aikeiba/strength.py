@@ -1,8 +1,9 @@
 """Log-strengths for the runners of one race card, with the reasons behind them.
 
-The card (and the history table, when given) is abstracted into one standardized
-factor vector per runner (``factors``), which the linear model (``model``) turns into
-log-strengths. With odds on every runner, the market log-probability is combined in.
+The card is abstracted into one standardized factor vector per runner (``factors``),
+which the linear model (``model``) turns into log-strengths. A history table, when
+given, first fills the card (``history.enrich_card``), as in training. With odds on
+every runner, the market log-probability is combined in.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from aikeiba.factors import FACTOR_NAMES, compute_factors
-from aikeiba.history import prepare_history
+from aikeiba.history import enrich_card
 from aikeiba.model import ModelWeights, prior_weights, standardize
 from aikeiba.model import log_strengths as model_log_strengths
 from aikeiba.racecard import RaceCard
@@ -59,10 +60,10 @@ class CardEvaluation:
 def evaluate_card(
     card: RaceCard, history: pd.DataFrame | None = None, weights: ModelWeights | None = None
 ) -> CardEvaluation:
-    if history is not None and "cond_bin" not in history.columns:
-        history = prepare_history(history)
+    if history is not None:
+        card = enrich_card(card, history)
     weights = weights or prior_weights()
-    raw = compute_factors(card, history)
+    raw = compute_factors(card)
     x = standardize(raw)
     log_market = market_log_probabilities(card)
     log_s = model_log_strengths(x, weights, log_market)
