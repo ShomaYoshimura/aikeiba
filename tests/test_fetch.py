@@ -66,16 +66,18 @@ def test_rate_limit_between_requests(site, tmp_path):
 
 
 def test_rate_limit_shared_across_fetchers(site, tmp_path):
-    import time
-
     fetch.record_terms_review("local")
     cache = tmp_path / "cache"
-    Fetcher(cache_dir=cache, min_interval=0.3).get(f"{site}/race.html", max_age_hours=0)
-    done = time.monotonic()
+    f1 = Fetcher(cache_dir=cache, min_interval=0.3)
+    f1.get(f"{site}/race.html", max_age_hours=0)
+    (first,) = f1.request_times.values()
     f2 = Fetcher(cache_dir=cache, min_interval=0.3)  # e.g. another process
     f2.get(f"{site}/race.html", max_age_hours=0)
     (times,) = f2.request_times.values()
-    assert times[0] - done >= 0.3 - 0.01  # wall/monotonic clock mapping tolerance
+    # The interval runs from when f1 sent its last request, not from when get() returned
+    # (that is later by the request's duration). The tolerance covers the mapping between
+    # the wall-clock stamp and the monotonic clock.
+    assert times[0] - first[-1] >= 0.3 - 0.01
     assert times[1] - times[0] >= 0.3
 
 
