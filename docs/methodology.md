@@ -42,9 +42,19 @@ when a decision changes.
 | --- | --- | --- | --- |
 | 的中重視 (hit) | finish well, regardless of price | highest win probability | highest top-2 / top-3 probability of the rest |
 | 両立 (balanced) | like hit, but avoid runners the market clearly overrates | as hit, among runners with expected value ≥ 0.9 | as hit, same filter |
-| 回収重視 (value) | long-run return | highest expected value (probability × odds) above 1.1 | next highest; fractional Kelly (¼) stake |
+| 回収重視 (value) | long-run return | highest expected value (probability × odds) above 1.1 | next highest; fractional Kelly (¼) stake, only for validated weights |
 
 The thresholds are initial choices, to be tuned on the prediction log.
+
+**Stakes need evidence.** An expected value is only as good as the probabilities behind it.
+Prior weights are hand-set, and on top of `beta × log(market probability)` they count again
+information the odds already hold, so they tilt the probabilities toward the favourites without
+evidence. Stakes are therefore given only for *validated* weights (`ModelWeights.validated`):
+weights fitted by `aikeiba-train` whose walk-forward shows fitted+market beating the market
+alone, with the 95% upper bound of the mean per-race winner log-loss difference below zero
+(`train.market_comparison`, stored in the weights' `meta`). Otherwise the value strategy still
+lists its candidates and their expected values, but without stakes, and the output says the
+probabilities are unvalidated.
 
 ### Qualitative information
 
@@ -55,8 +65,17 @@ The thresholds are initial choices, to be tuned on the prediction log.
 
 ## How predictions are scored
 
-The primary scores are **hit rate** and **calibration**. Log loss is reported alongside
-because it is the objective the weights are fitted on.
+The primary scores reported to the user are **hit rate** and **calibration**. Log loss is
+reported alongside because it is the objective the weights are fitted on. Whether a model
+change is adopted, and whether stakes are given, is decided by winner log loss relative to the
+market in the walk-forward (`ROADMAP.md`), with a confidence bound, not by hit rate: copying
+the favourite already gives a respectable hit rate.
+
+The race-day log from `/verify-race` is a check of the whole pipeline rather than unbiased
+evidence: collectors read pages as they are now, and some statistics on them (a jockey's year,
+a sire's record) already include the race and later ones. `racecard.check_point_in_time`
+rejects past runs dated on or after the race day and workouts after it, but it cannot see
+inside a published total. Use the walk-forward on history as the evidence.
 
 | Score | What it measures | Baseline |
 | --- | --- | --- |

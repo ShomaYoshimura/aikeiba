@@ -50,7 +50,11 @@ many of these as you can confirm:
   `trainer`, `trainer_graded`, `trainer_jockey`, `owner`, `breeder`, `region`,
   `sire_condition` (the sire's progeny on this surface, distance band and going),
   `damsire_condition`, `siblings` (the dam's other foals combined), `dam_race` (the dam's own
-  racing record). All counted up to the cutoff.
+  racing record). All counted up to the cutoff. Pages usually show totals as of today: when
+  the cutoff is in the past (verify-race), use a record only if the page can be restricted to
+  dates before the cutoff (e.g. a past year or a date filter); otherwise leave it out and list it
+  as missing. Never include the target race or later races in `past_runs`; the card loader
+  rejects them.
 - `stable_comment` and `comment_score` (-2..2):
   +2 clear, specific confidence; +1 positive; 0 routine or vague; -1 hedged or a minor
   concern; -2 a clear problem (injury, missed work, "just a run"). Score only what the

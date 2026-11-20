@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from aikeiba.model import ModelWeights, fit_plackett_luce, log_strengths, prior_weights
-from aikeiba.train import build_examples, fit_weights, walk_forward
+from aikeiba.train import build_examples, fit_weights, market_comparison, walk_forward
 
 
 def test_plackett_luce_fit_recovers_true_weights():
@@ -58,3 +58,17 @@ def test_fit_and_walk_forward(examples):
     report = walk_forward(examples, [2022], l2=5.0, min_train=10)
     assert set(report["predictor"]) == {"fitted", "prior", "fitted+market", "market", "uniform"}
     assert {"log_loss", "top_pick_win", "top_pick_top3", "ece"} <= set(report.columns)
+    n_market = report.loc[report["predictor"] == "market", "n_test"].sum()
+    assert len(report.attrs["market_diffs"]) == n_market
+
+
+def test_validated_needs_evidence_of_beating_the_market():
+    assert not prior_weights().validated
+    fitted = ModelWeights(prior_weights().fundamental, fitted=True)
+    assert not fitted.validated  # fitted, but no walk-forward evidence
+    worse = market_comparison(np.array([0.05, -0.02, 0.03, 0.01]))
+    lucky = market_comparison(np.array([-0.3, 0.2, -0.25, 0.1]))  # mean < 0, wide interval
+    better = market_comparison(np.full(200, -0.02) + np.linspace(-0.01, 0.01, 200))
+    assert not worse["beats_market"] and not lucky["beats_market"] and better["beats_market"]
+    fitted.meta["walk_forward_vs_market"] = better
+    assert fitted.validated

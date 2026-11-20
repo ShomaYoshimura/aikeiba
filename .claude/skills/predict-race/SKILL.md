@@ -66,13 +66,15 @@ and run again.
    (running style, gate, sire), briefly, from `course_trends` / `course_draw_stats`.
 3. Every runner's win, top-2 and top-3 probability.
 4. The marks of all three strategies in `strategies` (see `docs/methodology.md`):
-   的中重視 (hit), 両立 (balanced) and 回収重視 (value, with expected value and Kelly stake;
-   it may be empty). Explain each ◎ with its `reasons` (the factors that moved its score
+   的中重視 (hit), 両立 (balanced) and 回収重視 (value, with expected value, and a Kelly stake
+   only when `validated` is true; it may be empty). When `validated` is false, say plainly that
+   the expected values come from unvalidated probabilities and are not a reason to bet. Explain each ◎ with its `reasons` (the factors that moved its score
    most), translated into plain Japanese, plus any notable comment. Say where the strategies
    disagree and why (usually price).
 5. The five most likely 馬連, 三連複 and 三連単 combinations.
 6. Caveats, briefly:
-   - Whether the weights are `prior` (hand-set, not validated) or `fitted` (and on how many races).
+   - Whether the weights are `prior` (hand-set, not validated) or `fitted` (and on how many races),
+     and whether they are `validated` (beat the market walk-forward).
    - Factors that were unknown for every runner (`missing_factors`).
    - More trials only reduce sampling error; accuracy depends on the inputs.
 

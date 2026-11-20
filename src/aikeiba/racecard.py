@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from aikeiba.schema import GRADED
@@ -325,6 +326,38 @@ def _trend_records(d: dict | None, where: str, allowed: tuple[str, ...]) -> dict
     return out
 
 
+def _date(value, where: str) -> date:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError as e:
+        raise ValueError(f"{where} must be a YYYY-MM-DD date, got {value!r}") from e
+
+
+def check_point_in_time(card: RaceCard) -> None:
+    """Reject data that cannot have been known before the race.
+
+    Past runs must be dated before the race day (the race itself or a later run in
+    ``past_runs`` means a collector read a page updated after the race), and workouts
+    no later than the race day. Finishing positions must fit the field size.
+    """
+    race_day = _date(card.date, "race date")
+    for r in card.runners:
+        for p in r.past_runs:
+            if _date(p.date, f"past_runs date of {r.horse}") >= race_day:
+                raise ValueError(
+                    f"past run of {r.horse} on {p.date} is not before the race ({card.date}): "
+                    "the source was read after the race; drop that run"
+                )
+            if p.field_size is not None and not 1 <= p.finish <= p.field_size:
+                raise ValueError(
+                    f"past run of {r.horse} on {p.date}: finish {p.finish} "
+                    f"outside a field of {p.field_size}"
+                )
+        for w in r.workouts:
+            if _date(w.date, f"workout date of {r.horse}") > race_day:
+                raise ValueError(f"workout of {r.horse} on {w.date} is after the race")
+
+
 def parse_race_card(data: dict) -> RaceCard:
     race = data["race"]
     going = _going(race["going"], "race")
@@ -345,7 +378,7 @@ def parse_race_card(data: dict) -> RaceCard:
         str(g): _record(rec, f"course_draw_stats.{g}")
         for g, rec in (data.get("course_draw_stats") or {}).items()
     }
-    return RaceCard(
+    card = RaceCard(
         name=race["name"],
         date=race["date"],
         course=race["course"],
@@ -365,6 +398,8 @@ def parse_race_card(data: dict) -> RaceCard:
         course_draw_stats=course_draw,
         sources=tuple(data.get("sources") or ()),
     )
+    check_point_in_time(card)
+    return card
 
 
 def load_race_card(path: str | Path) -> RaceCard:

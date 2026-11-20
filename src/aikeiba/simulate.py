@@ -121,9 +121,14 @@ class SimulationResult:
         odds = [r.win_odds for r in self.card.runners]
         return None if any(o is None for o in odds) else np.asarray(odds, dtype=float)
 
+    @property
+    def validated(self) -> bool:
+        """True when the weights beat the market walk-forward (``ModelWeights.validated``)."""
+        return self.evaluation.weights.validated
+
     def strategy_picks(self, params: StrategyParams | None = None) -> dict:
-        """Marks for each strategy in ``strategies.STRATEGIES``."""
-        return make_picks(self.win, self.top2, self.top3, self.odds, params)
+        """Marks for each strategy in ``strategies.STRATEGIES``; stakes only when validated."""
+        return make_picks(self.win, self.top2, self.top3, self.odds, params, stakes=self.validated)
 
     def picks(self) -> list[int]:
         """Runner indices for ◎ ○ ▲ of the hit strategy."""
@@ -153,6 +158,7 @@ class SimulationResult:
             "graded": self.card.is_graded,
             "n_sims": self.n_sims,
             "weights": "fitted" if self.evaluation.weights.fitted else "prior",
+            "validated": self.validated,
             "uses_market": self.evaluation.log_market is not None,
             "runners": self.table().to_dict(orient="records"),
             "picks": [
@@ -244,6 +250,12 @@ def _format(result: SimulationResult) -> str:
         f"weights={'fitted' if ev.weights.fitted else 'prior'}  "
         f"market={'yes' if ev.log_market is not None else 'no'}",
     ]
+    if not result.validated:
+        lines.append(
+            "warning: these weights have not beaten the market walk-forward (prior weights, "
+            "or fitted without that evidence); probabilities and expected values are "
+            "unvalidated, so no stakes are given"
+        )
     if not card.is_graded:
         lines.append("warning: this system targets graded races (G1/G2/G3)")
     lines.append("")

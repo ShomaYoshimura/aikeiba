@@ -113,7 +113,7 @@ npm run dev
 ## Design principles
 
 - **No future leakage.** Every feature carries the time it became available, and tests enforce it.
-- **Train on all races, report on graded races.** Graded races alone (about 60 a year) are too
+- **Train on all races, report on graded races.** Graded races alone (about 130 a year) are too
   few to train on.
 - **The market is the benchmark.** Random guessing is not a meaningful baseline; odds are.
 - **Baseline first.** Methods from the blueprint are added one at a time and kept only if the
