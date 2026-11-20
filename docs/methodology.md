@@ -56,6 +56,14 @@ alone, with the 95% upper bound of the mean per-race winner log-loss difference 
 lists its candidates and their expected values, but without stakes, and the output says the
 probabilities are unvalidated.
 
+7. **Analyse and write up.** `aikeiba-report analyze` adds the risk sheet, scenario
+   probabilities, score-uncertainty intervals, the odds ladder, report marks and budgeted
+   tickets; Claude writes the prediction article from it. The steps, and where they differ
+   from the original v5.0 workflow, are in [race-analysis-workflow.md](race-analysis-workflow.md).
+   Two decisions matter for scoring: the risk sheet total is **not** added to the strength
+   (its items overlap factors the model already weighs), and the workflow's hand-set
+   calibration tilts and 100-point scoring are replaced by the fitted factor model.
+
 ### Qualitative information
 
 - Stable comments are scored −2..+2 by a fixed rubric (in the `runner-profile-collector`

@@ -1469,6 +1469,88 @@
    ]
   }
  ],
+ "rotation_trends": {
+  "Prep 0": {
+   "1": {
+    "starts": 12,
+    "top3": 6
+   },
+   "2-3": {
+    "starts": 20,
+    "top3": 5
+   },
+   "4-5": {
+    "starts": 15,
+    "top3": 2
+   },
+   "6+": {
+    "starts": 40,
+    "top3": 2
+   }
+  },
+  "Prep 4": {
+   "1": {
+    "starts": 8,
+    "top3": 3
+   },
+   "6+": {
+    "starts": 10,
+    "top3": 1
+   }
+  }
+ },
+ "past_editions": [
+  {
+   "year": 2025,
+   "winner": "Fictional One",
+   "winner_popularity": 2,
+   "winner_running_style": "先行",
+   "winner_sire_line": "Sire X line",
+   "winner_previous_race": "Prep 0",
+   "first_half": 33.4,
+   "second_half": 34.6,
+   "pace": "ハイ",
+   "going": "良",
+   "top3_popularity": [
+    2,
+    1,
+    7
+   ],
+   "top3_draws": [
+    3,
+    5,
+    1
+   ]
+  },
+  {
+   "year": 2024,
+   "winner": "Fictional Two",
+   "winner_popularity": 1,
+   "winner_running_style": "差し",
+   "first_half": 34.2,
+   "second_half": 33.9,
+   "pace": "ミドル",
+   "going": "稍重",
+   "top3_popularity": [
+    1,
+    4,
+    3
+   ]
+  },
+  {
+   "year": 2023,
+   "winner": "Fictional Three",
+   "winner_popularity": 5,
+   "winner_running_style": "逃げ",
+   "pace": "スロー",
+   "going": "良",
+   "top3_popularity": [
+    5,
+    2,
+    9
+   ]
+  }
+ ],
  "sources": [
   "Fictional example for tests and documentation"
  ]

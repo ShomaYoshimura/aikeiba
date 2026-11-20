@@ -1,11 +1,17 @@
 ---
 name: predict-race
-description: Predict a JRA graded race (G1/G2/G3) from its name. Collects entries, horse/jockey/trainer/pedigree data, workouts, stable comments and public prediction trends into a race card, abstracts them into factor vectors, runs a 1,000,000-trial Monte Carlo simulation and reports the top three picks with trio/trifecta probabilities. Use when the user names a race (e.g. "天皇賞（秋）を予想して", "/predict-race 有馬記念").
+description: Predict a JRA graded race (G1/G2/G3) from its name. Collects entries, horse/jockey/trainer/pedigree data, workouts, stable comments and public prediction trends into a race card, abstracts them into factor vectors, runs a 1,000,000-trial Monte Carlo simulation, scores a risk sheet for every runner, and writes a prediction article with marks, budgeted tickets and expected returns (optionally as a PDF report). Use when the user names a race (e.g. "天皇賞（秋）を予想して", "/predict-race 有馬記念").
 ---
 
 # Predict a graded race
 
-Input: a race name, optionally with a date or year. Reply to the user in Japanese.
+Input: a race name, optionally with a date or year, and optionally a budget (default
+10,000 yen). Reply to the user in Japanese.
+
+The steps follow the analysis workflow in `docs/race-analysis-workflow.md` (steps 1–11):
+collection (steps 1–2), the model and the risk sheet (2.3–6), odds and tickets (7–8), the
+article (10) and the report (11). Do the steps in order; odds are looked at only from
+step 7 on, and the fundamental evaluation never uses them.
 
 The system targets graded races only. If the race is not G1/G2/G3, say so and ask before
 continuing.
@@ -47,19 +53,39 @@ recorded as reviewed, tell the user (`aikeiba-fetch --review-terms <site>`, see
 field average. The field list and the comment-scoring rubric are in the agent definitions
 (`.claude/agents/`); the card format is in `examples/race_card.example.json`.
 
-## 3. Simulate
+## 3. Simulate and analyse
 
 ```bash
 uv run aikeiba-simulate <dir>/card.json --sims 1000000 --json <dir>/prediction.json \
   [--history data/history.parquet] [--weights data/models/weights.json]
+uv run aikeiba-report analyze <dir>/card.json --budget <yen> --out <dir>/analysis.json \
+  [--history data/history.parquet] [--weights data/models/weights.json]
 ```
+
+`analysis.json` adds the risk sheet (R1–R8 for every runner), the scenario probabilities
+(A–E), the fundamental win probability without odds, the 90% score-uncertainty interval
+and robustness order, the odds ladder with its gaps and expected values, the report marks
+(◎○▲△☆×), the budgeted tickets with estimated odds, and returns A/B/C. Read the printed
+sheets before writing anything.
 
 Pass `--history` and `--weights` when those files exist: statistics then come from the full
 history (the card's `stats` and `trends` are only a fallback), and the factor weights are the
 ones fitted by `aikeiba-train`. If the card is rejected, fix the card (never the validation)
 and run again.
 
-## 4. Report (in Japanese)
+## 4. Article and report (in Japanese)
+
+Write the prediction article to `<dir>/article.md` following
+[article.md](article.md) (template, sources in `analysis.json`, checklist), and show it to
+the user. Then, unless the user does not want it, lay it out as a report:
+
+```bash
+uv run aikeiba-report render <dir>/analysis.json --article <dir>/article.md \
+  --html <dir>/report.html --pdf <dir>/report.pdf
+```
+
+The PDF needs a Chromium binary (found automatically, or `AIKEIBA_CHROME`); if none is
+found, give the HTML. After the article, add a short technical summary:
 
 1. The race, the data stage, the going, and the sources.
 2. The reference-race tendencies at this course and distance that matter for this field
@@ -77,6 +103,13 @@ and run again.
      and whether they are `validated` (beat the market walk-forward).
    - Factors that were unknown for every runner (`missing_factors`).
    - More trials only reduce sampling error; accuracy depends on the inputs.
+
+## 5. Race-day update (optional, step 9)
+
+When horse weights, the going, the cushion value, paddock reports or earlier races of the day
+are announced, add them to the card (re-run the collectors or fill the fields from a cited
+source), re-run step 3 and update the article. Keep the changes small and say what changed
+and why (e.g. R4/R6 or the scenario mix moved).
 
 After the race, the prediction can be scored with the verify-race skill (step 5 there), which
 fetches the result and logs it with `aikeiba-evaluate`.

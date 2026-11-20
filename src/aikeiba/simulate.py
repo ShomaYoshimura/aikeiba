@@ -8,6 +8,12 @@ log-strengths) plus race-level shocks shared by all runners in that trial:
 - track bias: an inside/outside bias whose spread grows as the going softens.
 - form uncertainty: extra per-runner noise that shrinks with the number of known runs.
 
+Each trial is also labelled with a race scenario (A slow pace / B middle / C fast /
+D slow pace with an inside bias on good going / E soft going) from its pace and
+track-bias draws, so the report can give scenario probabilities and each runner's
+win and top-3 rate per scenario. The labels describe the continuous shocks; they do
+not add effects of their own.
+
 With ``shocks=False`` the draws are exact Plackett-Luce samples, so win rates converge
 to the softmax of the log-strengths (the market probabilities when only odds are known).
 """
@@ -27,6 +33,13 @@ from aikeiba.strategies import StrategyParams, make_picks
 from aikeiba.strength import CardEvaluation, evaluate_card
 
 STYLE_SCORE = {"front": 1.0, "stalker": 0.5, "midfield": -0.25, "closer": -1.0}
+SCENARIOS = {
+    "A": "スロー瞬発",
+    "B": "ミドル持続",
+    "C": "ハイペース消耗",
+    "D": "高速前残り",
+    "E": "道悪タフ",
+}
 
 
 @dataclass(frozen=True)
@@ -42,6 +55,8 @@ class ShockParams:
     front_runner_threshold: float = 0.7  # early-speed score from which a runner counts as front
     rain_bias_multiplier: float = 1.3  # wider track-bias spread in rain or snow
     wind_bias_per_ms: float = 0.03  # +3% track-bias spread per m/s of wind
+    slow_pace: float = -0.5  # pace draws (sd units) below this are scenario A or D
+    fast_pace: float = 0.5  # above this, scenario C
 
 
 def style_scores(card: RaceCard, early_speed: np.ndarray | None = None) -> np.ndarray:
@@ -61,7 +76,8 @@ def race_shocks(
     params: ShockParams,
     n_runs: np.ndarray,
     early_speed: np.ndarray | None = None,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Per-trial shocks (n_sims x n), and the pace and track-bias draws (n_sims,)."""
     n = card.field_size
     style = style_scores(card, early_speed)
     n_front = int((style >= params.front_runner_threshold).sum())
@@ -80,7 +96,20 @@ def race_shocks(
     shocks -= bias * position  # bias > 0 favours the inside
 
     sigma = params.unknown_form_sd / np.sqrt(1.0 + n_runs)
-    return shocks + rng.normal(size=(n_sims, n)) * sigma
+    return shocks + rng.normal(size=(n_sims, n)) * sigma, pace[:, 0], bias[:, 0]
+
+
+def classify_scenarios(going: str, pace: np.ndarray, bias: np.ndarray, params: ShockParams):
+    """Index into ``SCENARIOS`` (0 = A ... 4 = E) for each trial."""
+    if going in ("soft", "heavy"):
+        return np.full(len(pace), 4)
+    out = np.full(len(pace), 1)  # B
+    out[pace > params.fast_pace] = 2  # C
+    slow = pace < params.slow_pace
+    out[slow] = 0  # A
+    if going == "good":
+        out[slow & (bias > 0)] = 3  # D: slow pace, inside (front-runner) bias, fast ground
+    return out
 
 
 @dataclass
@@ -94,6 +123,9 @@ class SimulationResult:
     quinella: np.ndarray  # counts indexed by a * n + b with a < b
     trio: np.ndarray  # counts indexed by a * n^2 + b * n + c with a < b < c
     trifecta: np.ndarray  # counts indexed by first * n^2 + second * n + third
+    scenario_counts: np.ndarray | None = None  # trials per scenario (A..E)
+    scenario_win: np.ndarray | None = None  # (scenario, runner) win counts
+    scenario_top3: np.ndarray | None = None  # (scenario, runner) top-3 counts
 
     def standard_error(self, p: np.ndarray) -> np.ndarray:
         return np.sqrt(p * (1 - p) / self.n_sims)
@@ -149,6 +181,30 @@ class SimulationResult:
             out.append((tuple(numbers[i] for i in idx), counts[key] / self.n_sims))
         return out
 
+    def scenarios(self) -> list[dict]:
+        """Probability of each scenario and every runner's win / top-3 rate within it."""
+        if self.scenario_counts is None:
+            return []
+        out = []
+        for k, (code, label) in enumerate(SCENARIOS.items()):
+            c = self.scenario_counts[k]
+            out.append(
+                {
+                    "code": code,
+                    "label": label,
+                    "probability": float(c / self.n_sims),
+                    "win": {
+                        r.number: float(self.scenario_win[k, i] / c) if c else None
+                        for i, r in enumerate(self.card.runners)
+                    },
+                    "top3": {
+                        r.number: float(self.scenario_top3[k, i] / c) if c else None
+                        for i, r in enumerate(self.card.runners)
+                    },
+                }
+            )
+        return out
+
     def to_dict(self) -> dict:
         names = [r.horse for r in self.card.runners]
         return {
@@ -187,6 +243,7 @@ class SimulationResult:
                 for name, picks in self.strategy_picks().items()
             },
             "missing_factors": self.evaluation.missing_factors(),
+            "scenarios": self.scenarios(),
             **{
                 kind: [{"numbers": c, "probability": p} for c, p in self.top_combinations(kind)]
                 for kind in ("quinella", "trio", "trifecta")
@@ -216,17 +273,28 @@ def simulate_race(
     quinella = np.zeros(n * n)
     trio = np.zeros(n**3)
     trifecta = np.zeros(n**3)
+    scen_counts = np.zeros(len(SCENARIOS)) if shocks else None
+    scen_win = np.zeros((len(SCENARIOS), n)) if shocks else None
+    scen_top3 = np.zeros((len(SCENARIOS), n)) if shocks else None
 
     for start in range(0, n_sims, chunk_size):
         m = min(chunk_size, n_sims - start)
         keys = log_s + rng.gumbel(size=(m, n))
         if shocks:
-            keys += race_shocks(
+            extra, pace, bias = race_shocks(
                 card, m, rng, params, evaluation.n_runs, evaluation.raw["early_speed"].to_numpy()
             )
+            keys += extra
         top = np.argpartition(-keys, 2, axis=1)[:, :3]
         order = np.argsort(-np.take_along_axis(keys, top, axis=1), axis=1)
         top = np.take_along_axis(top, order, axis=1)  # first, second, third
+        if shocks:
+            scen = classify_scenarios(card.going, pace, bias, params)
+            scen_counts += np.bincount(scen, minlength=len(SCENARIOS))
+            size = len(SCENARIOS) * n
+            scen_win += np.bincount(scen * n + top[:, 0], minlength=size).reshape(-1, n)
+            for k in range(3):
+                scen_top3 += np.bincount(scen * n + top[:, k], minlength=size).reshape(-1, n)
         for k in range(3):
             pos_counts[k] += np.bincount(top[:, k], minlength=n)
         pair = np.sort(top[:, :2], axis=1)
@@ -237,7 +305,18 @@ def simulate_race(
 
     cum = np.cumsum(pos_counts, axis=0) / n_sims
     return SimulationResult(
-        card, evaluation, n_sims, cum[0], cum[1], cum[2], quinella, trio, trifecta
+        card,
+        evaluation,
+        n_sims,
+        cum[0],
+        cum[1],
+        cum[2],
+        quinella,
+        trio,
+        trifecta,
+        scen_counts,
+        scen_win,
+        scen_top3,
     )
 
 

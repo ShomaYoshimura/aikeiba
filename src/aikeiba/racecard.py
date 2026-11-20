@@ -67,6 +67,22 @@ COURSE_TREND_ATTRS = (
     "sex",
     "last_finish",
     "sire",
+)
+FINISH_BANDS = ("1", "2-3", "4-5", "6+")
+PAST_EDITION_FIELDS = (
+    "year",
+    "winner",
+    "winner_popularity",
+    "winner_running_style",  # 逃げ/先行/差し/追込
+    "winner_sire_line",
+    "winner_previous_race",
+    "first_half",  # seconds for the first half of the race
+    "second_half",
+    "pace",  # e.g. スロー / ミドル / ハイ, as published
+    "going",
+    "top3_popularity",  # betting ranks of the first three, e.g. [1, 5, 3]
+    "top3_draws",  # gates of the first three
+    "notes",
 )  # share of races finished ahead of the other jockeys in the field
 
 
@@ -176,6 +192,11 @@ class RaceCard:
     course_trends: dict = field(default_factory=dict)
     # Gate statistics for this course, surface and distance over all races: gate -> Record.
     course_draw_stats: dict = field(default_factory=dict)
+    # Past editions by the runners' previous race: previous race name -> last-finish band
+    # ("1", "2-3", "4-5", "6+") -> Record. Feeds risk item R1 (risk.py).
+    rotation_trends: dict = field(default_factory=dict)
+    # Facts about the most recent editions (newest first), for the review in the report.
+    past_editions: tuple[dict, ...] = ()
     sources: tuple[str, ...] = ()
 
     @property
@@ -358,6 +379,30 @@ def check_point_in_time(card: RaceCard) -> None:
                 raise ValueError(f"workout of {r.horse} on {w.date} is after the race")
 
 
+def _rotation_trends(d: dict | None) -> dict:
+    out = {}
+    for race_name, bands in (d or {}).items():
+        for band in bands:
+            if band not in FINISH_BANDS:
+                raise ValueError(f"rotation_trends.{race_name}: unknown band {band!r}")
+        out[str(race_name)] = {
+            b: _record(rec, f"rotation_trends.{race_name}.{b}") for b, rec in bands.items()
+        }
+    return out
+
+
+def _past_editions(items) -> tuple[dict, ...]:
+    out = []
+    for k, e in enumerate(items or ()):
+        unknown = set(e) - set(PAST_EDITION_FIELDS)
+        if unknown:
+            raise ValueError(f"past_editions[{k}] has unknown fields {sorted(unknown)}")
+        if "year" not in e:
+            raise ValueError(f"past_editions[{k}] needs a year")
+        out.append(dict(e))
+    return tuple(sorted(out, key=lambda e: -int(e["year"])))
+
+
 def parse_race_card(data: dict) -> RaceCard:
     race = data["race"]
     going = _going(race["going"], "race")
@@ -396,6 +441,8 @@ def parse_race_card(data: dict) -> RaceCard:
         trends=trends,
         course_trends=course_trends,
         course_draw_stats=course_draw,
+        rotation_trends=_rotation_trends(data.get("rotation_trends")),
+        past_editions=_past_editions(data.get("past_editions")),
         sources=tuple(data.get("sources") or ()),
     )
     check_point_in_time(card)

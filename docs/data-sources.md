@@ -20,7 +20,7 @@ and refuses any site whose terms have not been recorded as reviewed.
 | Site | Domains | Used for | Card fields |
 | --- | --- | --- | --- |
 | netkeiba | www / race / db / news.netkeiba.com | entries and gates, odds, horse past performances (time, margin, passing order, popularity, last 3F, weight carried), jockey / trainer / sire / dam records, course data | `runners`, `past_runs`, `stats`, `course_trends`, `course_draw_stats`, `win_odds`, `previous_odds` |
-| keibalab | www.keibalab.jp | past-edition trends ("過去10年"), course data by gate, running style and sire, entries, odds | `trends`, `course_trends`, `course_draw_stats` |
+| keibalab | www.keibalab.jp | past-edition trends ("過去10年"), course data by gate, running style and sire, entries, odds | `trends`, `past_editions`, `rotation_trends`, `course_trends`, `course_draw_stats` |
 | keibabook | p.keibabook.co.jp | workouts and stable comments, **free pages only** | `workouts`, `stable_comment` / `comment_score` |
 | umanity | umanity.jp | public predictions | `consensus_share` |
 | uma-x | uma-x.jp | public (AI) predictions and figures | `consensus_share` |

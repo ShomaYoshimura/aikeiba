@@ -37,6 +37,20 @@ output path.
 - `trends`: from "過去10年" style pages, `{"starts": n, "top3": k}` records by `draw`, `age`,
   `sex`, `running_style` (front/stalker/midfield/closer), `last_finish` (`1`, `2-3`, `4-5`,
   `6+`).
+- `past_editions`: the last three editions of this race (only years before the target race),
+  newest first, each with the fields you can confirm: `year`, `winner`, `winner_popularity`,
+  `winner_running_style` (逃げ/先行/差し/追込), `winner_sire_line`, `winner_previous_race`,
+  `first_half` / `second_half` (seconds, from the published lap times), `pace`
+  (スロー/ミドル/ハイ as published), `going`, `top3_popularity` (e.g. `[1, 5, 3]`),
+  `top3_draws`, `notes` (e.g. a course renovation or a change of venue that year). These are
+  past editions, not the target race, so their results are allowed.
+- `rotation_trends`: from "前走レース別成績" style pages of past editions (about ten years),
+  for each previous race that runners in this field come from, `{"starts": n, "top3": k}`
+  records by the previous finish band (`1`, `2-3`, `4-5`, `6+`), e.g.
+  `{"天皇賞（秋）": {"1": {...}, "6+": {...}}}`. Use the previous race names as the horses'
+  `past_runs` write them (the runner-profile-collector uses the official race name). Count
+  only editions before the target race: if a page already includes the target race (a past
+  race being verified), leave the field out rather than use it.
 - `course_trends` (reference races): records over races at the **same course, surface and
   distance** in recent years (about five; all classes, graded and open races included), by
   `running_style` (逃げ/先行/差し/追込), `age`, `sex`, `last_finish` (`1`, `2-3`, `4-5`, `6+`)

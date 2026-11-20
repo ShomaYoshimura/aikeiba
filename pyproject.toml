@@ -23,6 +23,7 @@ aikeiba-train = "aikeiba.train:main"
 aikeiba-card = "aikeiba.cardtools:main"
 aikeiba-evaluate = "aikeiba.evaluate:main"
 aikeiba-fetch = "aikeiba.fetch:main"
+aikeiba-report = "aikeiba.report:main"
 
 [dependency-groups]
 dev = [
